@@ -5,7 +5,9 @@ description = "Generates structured output using LLM"
 authors = [{name = "Tesla2000", email = "fratajczak124@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.4",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -25,6 +27,18 @@ classifiers = [
 Homepage = "https://github.com/Tesla2000/structured-output-creator"
 Issues = "https://github.com/Tesla2000/structured-output-creator/issues"
 Coverage = "https://codecov.io/gh/Tesla2000/structured-output-creator"
+
+[project.optional-dependencies]
+openai = [
+    "openai>=2.44.0",
+]
+anthropic = [
+    "anthropic>=0.115.1",
+]
+all = [
+    "openai>=2.44.0",
+    "anthropic>=0.115.1",
+]
 
 [dependency-groups]
 test = [
@@ -61,10 +75,11 @@ packages = ["structured_output_creator"]
 
 [tool.ruff]
 line-length = 79
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D", "E501", "S101", "S603", "S607", "COM812", "EM102", "TRY003", "TC001", "TC002", "TC003"]
+ignore = ["D", "E501", "S101", "S603", "S607", "COM812", "EM102", "TRY003", "TC001", "TC002", "TC003", "ANN401"]
 
 [tool.pytest.ini_options]
 markers = [
@@ -80,7 +95,8 @@ log_format = "%(asctime)s [%(levelname)8s] %(message)s"
 log_date_format = "%Y-%m-%d %H:%M:%S"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 strict = true
+exclude = ["^tests/"]
 
 mypy_path = "stubs"

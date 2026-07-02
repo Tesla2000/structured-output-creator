@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+import importlib
+import sys
+from unittest.mock import patch
+
+import pytest
+
+import structured_output_creator
+
+
+def test_all_contains_base_exports() -> None:
+    assert "Message" in structured_output_creator.__all__
+    assert "Role" in structured_output_creator.__all__
+    assert "ProviderType" in structured_output_creator.__all__
+
+
+def test_all_contains_openai_service() -> None:
+    assert "OpenAIService" in structured_output_creator.__all__
+
+
+def test_all_contains_claude_service() -> None:
+    assert "ClaudeService" in structured_output_creator.__all__
+
+
+def test_all_contains_any_provider_service() -> None:
+    assert "AnyProviderService" in structured_output_creator.__all__
+
+
+def test_openai_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator", raising=False
+    )
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator._openai", raising=False
+    )
+
+    with patch.dict(sys.modules, {"openai": None}):  # type: ignore[dict-item]
+        soc = importlib.import_module("structured_output_creator")
+        assert "OpenAIService" not in soc.__all__
+
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator", raising=False
+    )
+
+
+def test_claude_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator", raising=False
+    )
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator._claude", raising=False
+    )
+
+    with patch.dict(sys.modules, {"anthropic": None}):  # type: ignore[dict-item]
+        soc = importlib.import_module("structured_output_creator")
+        assert "ClaudeService" not in soc.__all__
+
+    monkeypatch.delitem(
+        sys.modules, "structured_output_creator", raising=False
+    )
