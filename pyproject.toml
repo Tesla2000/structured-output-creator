@@ -1,6 +1,6 @@
 [project]
 name = "structured_output_creator"
-version = "0.1.0"
+version = "0.1.1"
 description = "Generates structured output using LLM"
 authors = [{name = "Tesla2000", email = "fratajczak124@gmail.com"}]
 readme = "README.md"
