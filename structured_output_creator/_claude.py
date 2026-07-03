@@ -5,7 +5,7 @@ from typing import ClassVar, Literal, TypeVar, cast
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 
 from structured_output_creator._base_service import _NO_KWARGS, _BaseService
 from structured_output_creator._models import (
@@ -18,7 +18,10 @@ from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
 
-_DEFAULT_MAX_TOKENS = 4096
+_MAX_TOKENS_REQUIRED = (
+    "Claude requires max_tokens; pass "
+    "kwargs={'max_tokens': N} to create_structured_output"
+)
 
 
 def _error_from_response(response: BetaMessage) -> _ErrorObject:
@@ -33,7 +36,7 @@ def _error_from_response(response: BetaMessage) -> _ErrorObject:
 
 
 class _ClaudeKwargs(TypedDict, total=False):
-    max_tokens: int
+    max_tokens: Required[int]
     temperature: float
     top_p: float
     top_k: int
@@ -64,13 +67,15 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         output_type: type[T],
         kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
+        if "max_tokens" not in kwargs:
+            raise ValueError(_MAX_TOKENS_REQUIRED)
         response = self.client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=kwargs.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            max_tokens=kwargs["max_tokens"],
             temperature=kwargs.get("temperature", omit),
             top_p=kwargs.get("top_p", omit),
             top_k=kwargs.get("top_k", omit),
@@ -87,13 +92,15 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         output_type: type[T],
         kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
+        if "max_tokens" not in kwargs:
+            raise ValueError(_MAX_TOKENS_REQUIRED)
         response = await self.async_client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=kwargs.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            max_tokens=kwargs["max_tokens"],
             temperature=kwargs.get("temperature", omit),
             top_p=kwargs.get("top_p", omit),
             top_k=kwargs.get("top_k", omit),

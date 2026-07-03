@@ -3,13 +3,11 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from anthropic import Anthropic, AsyncAnthropic, omit
 from pydantic import BaseModel
 
-from structured_output_creator._claude import (
-    _DEFAULT_MAX_TOKENS,
-    _ClaudeService,
-)
+from structured_output_creator._claude import _ClaudeService
 from structured_output_creator._models import (
     _Message,
     _NoContentError,
@@ -17,6 +15,8 @@ from structured_output_creator._models import (
     _Role,
 )
 from structured_output_creator._types import _ProviderType
+
+_MAX_TOKENS = 4096
 
 
 class _Output(BaseModel):
@@ -54,12 +54,14 @@ def test_claude_generate_calls_parse() -> None:
         model="claude-haiku-4-5",
     )
     result = service._generate(  # noqa: SLF001
-        [_Message(role=_Role.user, content="hello")], _Output
+        [_Message(role=_Role.user, content="hello")],
+        _Output,
+        kwargs={"max_tokens": _MAX_TOKENS},
     )
 
     mock_client.beta.messages.parse.assert_called_once_with(
         model="claude-haiku-4-5",
-        max_tokens=_DEFAULT_MAX_TOKENS,
+        max_tokens=_MAX_TOKENS,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
         temperature=omit,
@@ -88,6 +90,7 @@ def test_claude_generate_passes_messages() -> None:
             _Message(role=_Role.user, content="hi"),
         ],
         _Output,
+        kwargs={"max_tokens": _MAX_TOKENS},
     )
     assert mock_client.beta.messages.parse.call_args.kwargs["messages"] == [
         {"role": "system", "content": "sys"},
@@ -95,21 +98,32 @@ def test_claude_generate_passes_messages() -> None:
     ]
 
 
-def test_claude_generate_default_max_tokens() -> None:
+def test_claude_generate_raises_when_max_tokens_missing() -> None:
     mock_client = MagicMock(spec=Anthropic)
-    mock_client.beta.messages.parse.return_value = _parsed_response(
-        _Output(name="C")
-    )
     service = _ClaudeService.model_construct(
         client=mock_client,
         async_client=MagicMock(spec=AsyncAnthropic),
         model="claude-haiku-4-5",
     )
-    service._generate([_Message(role=_Role.user, content="test")], _Output)  # noqa: SLF001
-    assert (
-        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
-        == _DEFAULT_MAX_TOKENS
+    with pytest.raises(ValueError, match="max_tokens"):
+        service._generate([_Message(role=_Role.user, content="test")], _Output)  # noqa: SLF001
+    mock_client.beta.messages.parse.assert_not_called()
+
+
+def test_claude_generate_async_raises_when_max_tokens_missing() -> None:
+    mock_async_client = MagicMock(spec=AsyncAnthropic)
+    service = _ClaudeService.model_construct(
+        client=MagicMock(spec=Anthropic),
+        async_client=mock_async_client,
+        model="claude-haiku-4-5",
     )
+    with pytest.raises(ValueError, match="max_tokens"):
+        asyncio.run(
+            service._generate_async(  # noqa: SLF001
+                [_Message(role=_Role.user, content="test")], _Output
+            )
+        )
+    mock_async_client.beta.messages.parse.assert_not_called()
 
 
 def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
@@ -148,7 +162,7 @@ def test_claude_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="t")],
         _Output,
-        kwargs={"temperature": custom_temperature},
+        kwargs={"max_tokens": _MAX_TOKENS, "temperature": custom_temperature},
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["temperature"]
@@ -166,7 +180,11 @@ def test_claude_generate_omits_unset_optional_params() -> None:
         async_client=MagicMock(spec=AsyncAnthropic),
         model="claude-haiku-4-5",
     )
-    service._generate([_Message(role=_Role.user, content="t")], _Output)  # noqa: SLF001
+    service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="t")],
+        _Output,
+        kwargs={"max_tokens": _MAX_TOKENS},
+    )
     call_kwargs = mock_client.beta.messages.parse.call_args.kwargs
     assert call_kwargs["temperature"] is omit
     assert call_kwargs["top_p"] is omit
@@ -187,13 +205,15 @@ def test_claude_generate_async_calls_parse() -> None:
     )
     result = asyncio.run(
         service._generate_async(  # noqa: SLF001
-            [_Message(role=_Role.user, content="hello")], _Output
+            [_Message(role=_Role.user, content="hello")],
+            _Output,
+            kwargs={"max_tokens": _MAX_TOKENS},
         )
     )
 
     mock_async_client.beta.messages.parse.assert_called_once_with(
         model="claude-haiku-4-5",
-        max_tokens=_DEFAULT_MAX_TOKENS,
+        max_tokens=_MAX_TOKENS,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
         temperature=omit,
@@ -219,7 +239,9 @@ def test_claude_generate_returns_error_object_on_refusal() -> None:
         model="claude-haiku-4-5",
     )
     result = service._generate(  # noqa: SLF001
-        [_Message(role=_Role.user, content="hello")], _Output
+        [_Message(role=_Role.user, content="hello")],
+        _Output,
+        kwargs={"max_tokens": _MAX_TOKENS},
     )
     assert isinstance(result, _RefusalError)
     assert result.message == "policy violation"
@@ -238,7 +260,9 @@ def test_claude_generate_returns_error_object_on_no_content() -> None:
         model="claude-haiku-4-5",
     )
     result = service._generate(  # noqa: SLF001
-        [_Message(role=_Role.user, content="hello")], _Output
+        [_Message(role=_Role.user, content="hello")],
+        _Output,
+        kwargs={"max_tokens": _MAX_TOKENS},
     )
     assert isinstance(result, _NoContentError)
     assert result.message == "stop_reason=tool_use"
@@ -260,7 +284,9 @@ def test_claude_generate_async_returns_error_object_on_refusal() -> None:
     )
     result = asyncio.run(
         service._generate_async(  # noqa: SLF001
-            [_Message(role=_Role.user, content="hello")], _Output
+            [_Message(role=_Role.user, content="hello")],
+            _Output,
+            kwargs={"max_tokens": _MAX_TOKENS},
         )
     )
     assert isinstance(result, _RefusalError)
