@@ -6,8 +6,8 @@ from typing import ClassVar, Protocol, TypeVar, cast
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf, create_model
 
 from structured_output_creator._cache import (
-    _ResponseCache,
     _make_default_cache,
+    _ResponseCache,
 )
 from structured_output_creator._models import _ErrorObject, _Message, _Role
 

@@ -6,11 +6,11 @@ from pydantic import BaseModel, ConfigDict, InstanceOf
 
 from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import (
+    LLMNoContentError,
+    LLMRefusalError,
     _ErrorObject,
     _Message,
     _RefusalError,
-    LLMNoContentError,
-    LLMRefusalError,
 )
 
 T = TypeVar("T")
