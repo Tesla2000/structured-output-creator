@@ -10,7 +10,12 @@ from structured_output_creator._claude import (
     _DEFAULT_MAX_TOKENS,
     _ClaudeService,
 )
-from structured_output_creator._models import _ErrorObject, _Message, _Role
+from structured_output_creator._models import (
+    _Message,
+    _NoContentError,
+    _RefusalError,
+    _Role,
+)
 from structured_output_creator._types import _ProviderType
 
 
@@ -121,7 +126,7 @@ def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"max_tokens": custom_max_tokens},
+        max_tokens=custom_max_tokens,
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
@@ -143,7 +148,7 @@ def test_claude_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="t")],
         _Output,
-        kwargs={"temperature": custom_temperature},
+        temperature=custom_temperature,
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["temperature"]
@@ -216,8 +221,7 @@ def test_claude_generate_returns_error_object_on_refusal() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert isinstance(result, _ErrorObject)
-    assert result.reason == "refusal"
+    assert isinstance(result, _RefusalError)
     assert result.message == "policy violation"
 
 
@@ -236,9 +240,31 @@ def test_claude_generate_returns_error_object_on_no_content() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert isinstance(result, _ErrorObject)
-    assert result.reason == "no_content"
+    assert isinstance(result, _NoContentError)
     assert result.message == "stop_reason=tool_use"
+
+
+def test_claude_generate_async_returns_error_object_on_refusal() -> None:
+    mock_async_client = MagicMock(spec=AsyncAnthropic)
+    mock_async_client.beta.messages.parse = AsyncMock(
+        return_value=MagicMock(
+            parsed_output=None,
+            stop_reason="refusal",
+            stop_details=MagicMock(explanation="policy violation"),
+        )
+    )
+    service = _ClaudeService.model_construct(
+        client=MagicMock(spec=Anthropic),
+        async_client=mock_async_client,
+        model="claude-haiku-4-5",
+    )
+    result = asyncio.run(
+        service._generate_async(  # noqa: SLF001
+            [_Message(role=_Role.user, content="hello")], _Output
+        )
+    )
+    assert isinstance(result, _RefusalError)
+    assert result.message == "policy violation"
 
 
 def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
@@ -256,7 +282,7 @@ def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"max_tokens": custom_max_tokens},
+            max_tokens=custom_max_tokens,
         )
     )
     assert (

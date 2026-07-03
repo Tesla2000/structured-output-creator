@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, MagicMock
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-from structured_output_creator._models import _ErrorObject, _Message, _Role
+from structured_output_creator._models import (
+    _Message,
+    _NoContentError,
+    _RefusalError,
+    _Role,
+)
 from structured_output_creator._openai import _OpenAIService
 from structured_output_creator._types import _ProviderType
 
@@ -72,7 +77,7 @@ def test_openai_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"temperature": custom_temperature},
+        temperature=custom_temperature,
     )
     assert (
         mock_client.beta.chat.completions.parse.call_args.kwargs["temperature"]
@@ -114,8 +119,7 @@ def test_openai_generate_returns_error_object_on_refusal() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert isinstance(result, _ErrorObject)
-    assert result.reason == "refusal"
+    assert isinstance(result, _RefusalError)
     assert result.message == "cannot help with that"
 
 
@@ -132,9 +136,35 @@ def test_openai_generate_returns_error_object_on_no_content() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert isinstance(result, _ErrorObject)
-    assert result.reason == "no_content"
+    assert isinstance(result, _NoContentError)
     assert result.message is None
+
+
+def test_openai_generate_async_returns_error_object_on_refusal() -> None:
+    mock_async_client = MagicMock(spec=AsyncOpenAI)
+    mock_async_client.beta.chat.completions.parse = AsyncMock(
+        return_value=MagicMock(
+            choices=[
+                MagicMock(
+                    message=MagicMock(
+                        parsed=None, refusal="cannot help with that"
+                    )
+                )
+            ]
+        )
+    )
+    service = _OpenAIService.model_construct(
+        client=MagicMock(spec=OpenAI),
+        async_client=mock_async_client,
+        model="gpt-5.4-mini",
+    )
+    result = asyncio.run(
+        service._generate_async(  # noqa: SLF001
+            [_Message(role=_Role.user, content="hello")], _Output
+        )
+    )
+    assert isinstance(result, _RefusalError)
+    assert result.message == "cannot help with that"
 
 
 def test_openai_generate_async_calls_parse() -> None:
@@ -175,7 +205,7 @@ def test_openai_generate_async_custom_temperature_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"temperature": custom_temperature},
+            temperature=custom_temperature,
         )
     )
     assert (

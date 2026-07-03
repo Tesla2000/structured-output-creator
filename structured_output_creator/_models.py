@@ -26,5 +26,12 @@ class _ErrorObject(BaseModel):
         frozen=True, extra="forbid"
     )
 
-    reason: str
     message: str | None = None
+
+
+class _RefusalError(_ErrorObject):
+    pass
+
+
+class _NoContentError(_ErrorObject):
+    pass

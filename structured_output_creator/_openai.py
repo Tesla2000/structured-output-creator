@@ -11,10 +11,16 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Unpack
 
 from structured_output_creator._base_service import _BaseService
-from structured_output_creator._models import _ErrorObject, _Message, _Role
+from structured_output_creator._models import (
+    _ErrorObject,
+    _Message,
+    _NoContentError,
+    _RefusalError,
+    _Role,
+)
 from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
@@ -25,8 +31,8 @@ def _error_from_message(
     message: ParsedChatCompletionMessage[_ContentT],
 ) -> _ErrorObject:
     if message.refusal:
-        return _ErrorObject(reason="refusal", message=message.refusal)
-    return _ErrorObject(reason="no_content", message=None)
+        return _RefusalError(message=message.refusal)
+    return _NoContentError()
 
 
 class _OpenAIKwargs(TypedDict, total=False):
@@ -49,7 +55,7 @@ def _as_oai_param(msg: _Message) -> ChatCompletionMessageParam:
     return ChatCompletionSystemMessageParam(role="system", content=msg.content)
 
 
-class _OpenAIService(_BaseService[_OpenAIKwargs]):
+class _OpenAIService(_BaseService):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -61,34 +67,34 @@ class _OpenAIService(_BaseService[_OpenAIKwargs]):
         default_factory=AsyncOpenAI, exclude=True
     )
 
-    def _generate(
+    def _generate(  # type: ignore[override]
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _OpenAIKwargs | None = None,
+        **kwargs: Unpack[_OpenAIKwargs],
     ) -> T | _ErrorObject:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
-            **(kwargs or {}),
+            **kwargs,
         )
         message = completion.choices[0].message
         if message.parsed is not None:
             return message.parsed
         return _error_from_message(message)
 
-    async def _generate_async(
+    async def _generate_async(  # type: ignore[override]
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _OpenAIKwargs | None = None,
+        **kwargs: Unpack[_OpenAIKwargs],
     ) -> T | _ErrorObject:
         completion = await self.async_client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
-            **(kwargs or {}),
+            **kwargs,
         )
         message = completion.choices[0].message
         if message.parsed is not None:

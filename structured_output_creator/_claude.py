@@ -5,10 +5,15 @@ from typing import ClassVar, Literal, TypeVar
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Unpack
 
 from structured_output_creator._base_service import _BaseService
-from structured_output_creator._models import _ErrorObject, _Message
+from structured_output_creator._models import (
+    _ErrorObject,
+    _Message,
+    _NoContentError,
+    _RefusalError,
+)
 from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
@@ -23,10 +28,8 @@ def _error_from_response(response: BetaMessage) -> _ErrorObject:
             if response.stop_details is not None
             else None
         )
-        return _ErrorObject(reason="refusal", message=explanation)
-    return _ErrorObject(
-        reason="no_content", message=f"stop_reason={response.stop_reason}"
-    )
+        return _RefusalError(message=explanation)
+    return _NoContentError(message=f"stop_reason={response.stop_reason}")
 
 
 class _ClaudeKwargs(TypedDict, total=False):
@@ -38,7 +41,7 @@ class _ClaudeKwargs(TypedDict, total=False):
     stop_sequences: list[str]
 
 
-class _ClaudeService(_BaseService[_ClaudeKwargs]):
+class _ClaudeService(_BaseService):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -52,49 +55,47 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         default_factory=AsyncAnthropic, exclude=True
     )
 
-    def _generate(
+    def _generate(  # type: ignore[override]
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _ClaudeKwargs | None = None,
+        **kwargs: Unpack[_ClaudeKwargs],
     ) -> T | _ErrorObject:
-        resolved = kwargs or {}
         response = self.client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=resolved.get("max_tokens", _DEFAULT_MAX_TOKENS),
-            temperature=resolved.get("temperature", omit),
-            top_p=resolved.get("top_p", omit),
-            top_k=resolved.get("top_k", omit),
-            system=resolved.get("system", omit),
-            stop_sequences=resolved.get("stop_sequences", omit),
+            max_tokens=kwargs.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            temperature=kwargs.get("temperature", omit),
+            top_p=kwargs.get("top_p", omit),
+            top_k=kwargs.get("top_k", omit),
+            system=kwargs.get("system", omit),
+            stop_sequences=kwargs.get("stop_sequences", omit),
         )
         if response.parsed_output is not None:
             return response.parsed_output
         return _error_from_response(response)
 
-    async def _generate_async(
+    async def _generate_async(  # type: ignore[override]
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _ClaudeKwargs | None = None,
+        **kwargs: Unpack[_ClaudeKwargs],
     ) -> T | _ErrorObject:
-        resolved = kwargs or {}
         response = await self.async_client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=resolved.get("max_tokens", _DEFAULT_MAX_TOKENS),
-            temperature=resolved.get("temperature", omit),
-            top_p=resolved.get("top_p", omit),
-            top_k=resolved.get("top_k", omit),
-            system=resolved.get("system", omit),
-            stop_sequences=resolved.get("stop_sequences", omit),
+            max_tokens=kwargs.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            temperature=kwargs.get("temperature", omit),
+            top_p=kwargs.get("top_p", omit),
+            top_k=kwargs.get("top_k", omit),
+            system=kwargs.get("system", omit),
+            stop_sequences=kwargs.get("stop_sequences", omit),
         )
         if response.parsed_output is not None:
             return response.parsed_output

@@ -13,6 +13,9 @@ def test_all_contains_base_exports() -> None:
     assert "Message" in structured_output_creator.__all__
     assert "Role" in structured_output_creator.__all__
     assert "ProviderType" in structured_output_creator.__all__
+    assert "ErrorObject" in structured_output_creator.__all__
+    assert "RefusalError" in structured_output_creator.__all__
+    assert "NoContentError" in structured_output_creator.__all__
 
 
 def test_all_contains_openai_service() -> None:
