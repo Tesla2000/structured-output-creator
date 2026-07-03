@@ -57,6 +57,24 @@ def test_make_key_differs_on_model() -> None:
     assert key_a != key_b
 
 
+def test_make_key_differs_on_kwargs() -> None:
+    messages = _make_messages()
+    key_a = _ResponseCache.make_key(
+        messages, _SampleModel, "Service", "model", temperature=0.5
+    )
+    key_b = _ResponseCache.make_key(
+        messages, _SampleModel, "Service", "model", temperature=0.9
+    )
+    assert key_a != key_b
+
+
+def test_make_key_stable_without_kwargs() -> None:
+    messages = _make_messages()
+    key_a = _ResponseCache.make_key(messages, _SampleModel, "Service", "model")
+    key_b = _ResponseCache.make_key(messages, _SampleModel, "Service", "model")
+    assert key_a == key_b
+
+
 def test_cache_miss_returns_none() -> None:
     cache = _ResponseCache()
     assert cache.get("nonexistent") is None

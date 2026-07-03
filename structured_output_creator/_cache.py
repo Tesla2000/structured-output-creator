@@ -26,6 +26,7 @@ class _ResponseCache(BaseModel):
         output_type: type[BaseModel],
         service_name: str,
         model: str,
+        **kwargs: object,
     ) -> str:
         payload = json.dumps(
             {
@@ -33,6 +34,7 @@ class _ResponseCache(BaseModel):
                 "schema": output_type.model_json_schema(),
                 "service": service_name,
                 "model": model,
+                "kwargs": kwargs,
             },
             sort_keys=True,
         )

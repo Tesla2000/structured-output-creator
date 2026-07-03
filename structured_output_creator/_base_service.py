@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, TypeVar
+from typing import ClassVar, Generic, Mapping, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -10,9 +10,10 @@ from structured_output_creator._models import _Message, _Role
 
 T = TypeVar("T", bound=BaseModel)
 PydanticType = TypeVar("PydanticType", bound=BaseModel)
+KwargsT = TypeVar("KwargsT", bound=Mapping[str, object])
 
 
-class _BaseService(BaseModel, ABC):
+class _BaseService(BaseModel, ABC, Generic[KwargsT]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -25,6 +26,7 @@ class _BaseService(BaseModel, ABC):
         output_type: type[T],
         *,
         use_cache: bool = False,
+        kwargs: KwargsT | None = None,
     ) -> T:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
@@ -37,17 +39,24 @@ class _BaseService(BaseModel, ABC):
                 value: output_type  # type: ignore[valid-type]
 
             result = self.create_structured_output(
-                messages, Model, use_cache=use_cache
+                messages, Model, use_cache=use_cache, kwargs=kwargs
             )
             return result.value
+        resolved_kwargs: Mapping[str, object] = (
+            kwargs if kwargs is not None else {}
+        )
         key = _ResponseCache.make_key(
-            messages, output_type, type(self).__name__, self.model
+            messages,
+            output_type,
+            type(self).__name__,
+            self.model,
+            **resolved_kwargs,
         )
         if use_cache:
             cached = _default_cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = self._generate(messages, output_type)
+        result = self._generate(messages, output_type, kwargs)
         if use_cache:
             _default_cache.set(key, result.model_dump())
         return result
@@ -58,6 +67,7 @@ class _BaseService(BaseModel, ABC):
         output_type: type[T],
         *,
         use_cache: bool = False,
+        kwargs: KwargsT | None = None,
     ) -> T:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
@@ -70,17 +80,24 @@ class _BaseService(BaseModel, ABC):
                 value: output_type  # type: ignore[valid-type]
 
             result = await self.create_structured_output_async(
-                messages, Model, use_cache=use_cache
+                messages, Model, use_cache=use_cache, kwargs=kwargs
             )
             return result.value
+        resolved_kwargs: Mapping[str, object] = (
+            kwargs if kwargs is not None else {}
+        )
         key = _ResponseCache.make_key(
-            messages, output_type, type(self).__name__, self.model
+            messages,
+            output_type,
+            type(self).__name__,
+            self.model,
+            **resolved_kwargs,
         )
         if use_cache:
             cached = _default_cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = await self._generate_async(messages, output_type)
+        result = await self._generate_async(messages, output_type, kwargs)
         if use_cache:
             _default_cache.set(key, result.model_dump())
         return result
@@ -90,6 +107,7 @@ class _BaseService(BaseModel, ABC):
         self,
         messages: list[_Message],
         output_type: type[PydanticType],
+        kwargs: KwargsT | None = None,
     ) -> PydanticType: ...
 
     @abstractmethod
@@ -97,4 +115,5 @@ class _BaseService(BaseModel, ABC):
         self,
         messages: list[_Message],
         output_type: type[PydanticType],
+        kwargs: KwargsT | None = None,
     ) -> PydanticType: ...

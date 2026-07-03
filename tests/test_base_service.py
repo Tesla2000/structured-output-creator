@@ -5,32 +5,61 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import _BaseService, PydanticType
 from structured_output_creator._cache import _ResponseCache, _default_cache
 from structured_output_creator._models import _Message, _Role
 
 
-class _ConcreteService(_BaseService):
+class _ConcreteKwargs(TypedDict, total=False):
+    name: str
+
+
+class _ConcreteService(_BaseService[_ConcreteKwargs]):
     model: str = "test-model"
 
     def _generate(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
+        kwargs: _ConcreteKwargs | None = None,
     ) -> PydanticType:
+        if kwargs and kwargs.get("name"):
+            return output_type.model_validate({"name": kwargs["name"]})
         return output_type.model_validate({"name": "generated"})
 
     async def _generate_async(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
+        kwargs: _ConcreteKwargs | None = None,
     ) -> PydanticType:
+        if kwargs and kwargs.get("name"):
+            return output_type.model_validate({"name": kwargs["name"]})
         return output_type.model_validate({"name": "async-generated"})
 
 
 class _Output(BaseModel):
     name: str
+
+
+def test_kwargs_forwarded_to_generate() -> None:
+    service = _ConcreteService()
+    result = service.create_structured_output(
+        "hello", _Output, use_cache=False, kwargs={"name": "custom"}
+    )
+    assert result.name == "custom"
+
+
+def test_kwargs_forwarded_to_generate_async() -> None:
+    service = _ConcreteService()
+    result = asyncio.run(
+        service.create_structured_output_async(
+            "hello", _Output, use_cache=False, kwargs={"name": "custom-async"}
+        )
+    )
+    assert result.name == "custom-async"
 
 
 def test_string_prompt_converted_to_message() -> None:
@@ -100,6 +129,7 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
+            _kwargs: _ConcreteKwargs | None = None,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
@@ -107,6 +137,7 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
+            _kwargs: _ConcreteKwargs | None = None,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
@@ -188,6 +219,7 @@ def test_async_non_pydantic_type_wrapped() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
+            _kwargs: _ConcreteKwargs | None = None,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 
@@ -195,6 +227,7 @@ def test_async_non_pydantic_type_wrapped() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
+            _kwargs: _ConcreteKwargs | None = None,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 

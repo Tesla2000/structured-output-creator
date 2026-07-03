@@ -4,6 +4,7 @@ from typing import ClassVar, Literal, TypeVar
 
 from anthropic import Anthropic, AsyncAnthropic
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
+from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import _Message
@@ -11,20 +12,25 @@ from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
 
+_DEFAULT_MAX_TOKENS = 4096
 
-class _ClaudeService(_BaseService):
+
+class _ClaudeKwargs(TypedDict, total=False):
+    max_tokens: int
+    temperature: float
+    top_p: float
+    top_k: int
+    system: str
+    stop_sequences: list[str]
+
+
+class _ClaudeService(_BaseService[_ClaudeKwargs]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
 
     service_type: Literal[_ProviderType.claude] = _ProviderType.claude
     model: str = "claude-haiku-4-5"
-    max_tokens: int = 4096
-    temperature: float | None = None
-    top_p: float | None = None
-    top_k: int | None = None
-    system: str | None = None
-    stop_sequences: list[str] | None = None
     client: InstanceOf[Anthropic] = Field(
         default_factory=Anthropic, exclude=True
     )
@@ -36,26 +42,17 @@ class _ClaudeService(_BaseService):
         self,
         messages: list[_Message],
         output_type: type[T],
+        kwargs: _ClaudeKwargs | None = None,
     ) -> T:
-        optional: dict[str, object] = {
-            k: v
-            for k, v in {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "top_k": self.top_k,
-                "system": self.system,
-                "stop_sequences": self.stop_sequences,
-            }.items()
-            if v is not None
-        }
+        call_kwargs: dict[str, object] = dict(kwargs or {})
+        call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = self.client.beta.messages.parse(
             model=self.model,
-            max_tokens=self.max_tokens,
-            messages=[  # type: ignore[arg-type]
+            messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            **optional,  # type: ignore[arg-type]
+            **call_kwargs,  # type: ignore[arg-type]
         )
         return response.parsed_output  # type: ignore[return-value]
 
@@ -63,25 +60,16 @@ class _ClaudeService(_BaseService):
         self,
         messages: list[_Message],
         output_type: type[T],
+        kwargs: _ClaudeKwargs | None = None,
     ) -> T:
-        optional: dict[str, object] = {
-            k: v
-            for k, v in {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "top_k": self.top_k,
-                "system": self.system,
-                "stop_sequences": self.stop_sequences,
-            }.items()
-            if v is not None
-        }
+        call_kwargs: dict[str, object] = dict(kwargs or {})
+        call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = await self.async_client.beta.messages.parse(
             model=self.model,
-            max_tokens=self.max_tokens,
-            messages=[  # type: ignore[arg-type]
+            messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            **optional,  # type: ignore[arg-type]
+            **call_kwargs,  # type: ignore[arg-type]
         )
         return response.parsed_output  # type: ignore[return-value]
