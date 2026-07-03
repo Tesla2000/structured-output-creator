@@ -17,9 +17,9 @@ class _Lock(Protocol):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
     ) -> None: ...
 
 
@@ -29,7 +29,9 @@ class _ResponseCache(BaseModel):
     data: dict[str, dict[str, object]] = Field(
         default_factory=dict, exclude=True
     )
-    lock: InstanceOf[_Lock] = Field(default_factory=threading.Lock, exclude=True)
+    lock: InstanceOf[_Lock] = Field(
+        default_factory=threading.Lock, exclude=True
+    )
 
     @staticmethod
     def make_key(

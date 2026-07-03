@@ -7,8 +7,8 @@ import pytest
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-from structured_output_creator._base_service import _BaseService, PydanticType
-from structured_output_creator._cache import _ResponseCache, _default_cache
+from structured_output_creator._base_service import PydanticType, _BaseService
+from structured_output_creator._cache import _default_cache, _ResponseCache
 from structured_output_creator._models import _ErrorObject, _Message, _Role
 
 
@@ -53,6 +53,7 @@ def test_kwargs_forwarded_to_generate() -> None:
     result = service.create_structured_output(
         "hello", _Output, use_cache=False, kwargs={"name": "custom"}
     )
+    assert isinstance(result, _Output)
     assert result.name == "custom"
 
 
@@ -63,6 +64,7 @@ def test_kwargs_forwarded_to_generate_async() -> None:
             "hello", _Output, use_cache=False, kwargs={"name": "custom-async"}
         )
     )
+    assert isinstance(result, _Output)
     assert result.name == "custom-async"
 
 
@@ -101,6 +103,7 @@ def test_string_prompt_converted_to_message() -> None:
     result = service.create_structured_output(
         "hello", _Output, use_cache=False
     )
+    assert isinstance(result, _Output)
     assert result.name == "generated"
 
 
@@ -110,6 +113,7 @@ def test_message_list_passed_through() -> None:
     result = service.create_structured_output(
         messages, _Output, use_cache=False
     )
+    assert isinstance(result, _Output)
     assert result.name == "generated"
 
 
@@ -138,6 +142,7 @@ def test_cache_hit_returns_without_generate() -> None:
         )
         mock_gen.assert_not_called()
 
+    assert isinstance(result, _Output)
     assert result.name == "from-cache"
     _default_cache.data.pop(key, None)
 
@@ -154,6 +159,7 @@ def test_cache_miss_calls_generate_and_stores() -> None:
             "miss", _Output, use_cache=True
         )
         mock_set.assert_called_once()
+    assert isinstance(result, _Output)
     assert result.name == "generated"
 
 
@@ -176,7 +182,7 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
             return output_type.model_validate({"value": "hello"})
 
     service = _StrService()
-    result = service.create_structured_output("prompt", str, use_cache=False)  # type: ignore[arg-type]
+    result = service.create_structured_output("prompt", str, use_cache=False)  # type: ignore[type-var]
     assert result == "hello"
 
 
@@ -192,6 +198,7 @@ def test_async_string_prompt_converted() -> None:
             "hello", _Output, use_cache=False
         )
     )
+    assert isinstance(result, _Output)
     assert result.name == "async-generated"
 
 
@@ -203,6 +210,7 @@ def test_async_message_list_passed_through() -> None:
             messages, _Output, use_cache=False
         )
     )
+    assert isinstance(result, _Output)
     assert result.name == "async-generated"
 
 
@@ -226,6 +234,7 @@ def test_async_cache_hit_skips_generate() -> None:
         )
         mock_gen.assert_not_called()
 
+    assert isinstance(result, _Output)
     assert result.name == "async-from-cache"
     _default_cache.data.pop(key, None)
 
@@ -244,6 +253,7 @@ def test_async_cache_miss_stores_result() -> None:
             )
         )
         mock_set.assert_called_once()
+    assert isinstance(result, _Output)
     assert result.name == "async-generated"
 
 
@@ -267,6 +277,6 @@ def test_async_non_pydantic_type_wrapped() -> None:
 
     service = _AsyncStrService()
     result = asyncio.run(
-        service.create_structured_output_async("prompt", str, use_cache=False)  # type: ignore[arg-type]
+        service.create_structured_output_async("prompt", str, use_cache=False)  # type: ignore[type-var]
     )
     assert result == "async-hello"

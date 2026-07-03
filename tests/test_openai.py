@@ -54,6 +54,7 @@ def test_openai_generate_calls_parse_with_correct_args() -> None:
         messages=[{"role": "user", "content": "hello"}],
         response_format=_Output,
     )
+    assert isinstance(result, _Output)
     assert result.name == "Alice"
 
 
@@ -154,6 +155,7 @@ def test_openai_generate_async_calls_parse() -> None:
         messages=[{"role": "user", "content": "hello"}],
         response_format=_Output,
     )
+    assert isinstance(result, _Output)
     assert result.name == "Async"
 
 

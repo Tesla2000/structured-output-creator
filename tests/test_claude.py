@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from anthropic import AsyncAnthropic, Anthropic, omit
+from anthropic import Anthropic, AsyncAnthropic, omit
 from pydantic import BaseModel
 
 from structured_output_creator._claude import _ClaudeService
@@ -60,6 +60,7 @@ def test_claude_generate_calls_parse() -> None:
         system=omit,
         stop_sequences=omit,
     )
+    assert isinstance(result, _Output)
     assert result.name == "Alice"
 
 
@@ -97,7 +98,9 @@ def test_claude_generate_default_max_tokens() -> None:
         model="claude-haiku-4-5",
     )
     service._generate([_Message(role=_Role.user, content="test")], _Output)  # noqa: SLF001
-    assert mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 4096
+    assert (
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 4096
+    )
 
 
 def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
@@ -115,7 +118,9 @@ def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
         _Output,
         kwargs={"max_tokens": 1024},
     )
-    assert mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 1024
+    assert (
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 1024
+    )
 
 
 def test_claude_generate_custom_temperature_via_kwargs() -> None:
@@ -184,6 +189,7 @@ def test_claude_generate_async_calls_parse() -> None:
         system=omit,
         stop_sequences=omit,
     )
+    assert isinstance(result, _Output)
     assert result.name == "Async"
 
 
@@ -245,5 +251,6 @@ def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
         )
     )
     assert (
-        mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 512
+        mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == 512
     )
