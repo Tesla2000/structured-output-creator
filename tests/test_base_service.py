@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
-from typing_extensions import TypedDict, Unpack
+from typing_extensions import TypedDict
 
-from structured_output_creator._base_service import PydanticType, _BaseService
+from structured_output_creator._base_service import (
+    _NO_KWARGS,
+    PydanticType,
+    _BaseService,
+)
 from structured_output_creator._cache import _default_cache, _ResponseCache
 from structured_output_creator._models import (
     _ErrorObject,
@@ -21,14 +26,17 @@ class _ConcreteKwargs(TypedDict, total=False):
     name: str
 
 
-class _ConcreteService(_BaseService):
+_NO_CONCRETE_KWARGS = cast("_ConcreteKwargs", _NO_KWARGS)
+
+
+class _ConcreteService(_BaseService[_ConcreteKwargs]):
     model: str = "test-model"
 
-    def _generate(  # type: ignore[override]
+    def _generate(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
-        **kwargs: Unpack[_ConcreteKwargs],
+        kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
     ) -> PydanticType | _ErrorObject:
         if kwargs.get("name") == "__error__":
             return _RefusalError(message="nope")
@@ -36,11 +44,11 @@ class _ConcreteService(_BaseService):
             return output_type.model_validate({"name": kwargs["name"]})
         return output_type.model_validate({"name": "generated"})
 
-    async def _generate_async(  # type: ignore[override]
+    async def _generate_async(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
-        **kwargs: Unpack[_ConcreteKwargs],
+        kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
     ) -> PydanticType | _ErrorObject:
         if kwargs.get("name") == "__error__":
             return _RefusalError(message="nope")
@@ -56,7 +64,7 @@ class _Output(BaseModel):
 def test_kwargs_forwarded_to_generate() -> None:
     service = _ConcreteService()
     result = service.create_structured_output(
-        "hello", _Output, use_cache=False, name="custom"
+        "hello", _Output, use_cache=False, kwargs={"name": "custom"}
     )
     assert isinstance(result, _Output)
     assert result.name == "custom"
@@ -66,7 +74,7 @@ def test_kwargs_forwarded_to_generate_async() -> None:
     service = _ConcreteService()
     result = asyncio.run(
         service.create_structured_output_async(
-            "hello", _Output, use_cache=False, name="custom-async"
+            "hello", _Output, use_cache=False, kwargs={"name": "custom-async"}
         )
     )
     assert isinstance(result, _Output)
@@ -76,7 +84,7 @@ def test_kwargs_forwarded_to_generate_async() -> None:
 def test_error_object_from_generate_propagates() -> None:
     service = _ConcreteService()
     result = service.create_structured_output(
-        "hello", _Output, use_cache=False, name="__error__"
+        "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
     )
     assert isinstance(result, _RefusalError)
     assert result.message == "nope"
@@ -86,7 +94,7 @@ def test_error_object_from_generate_is_not_cached() -> None:
     service = _ConcreteService()
     with patch.object(_ResponseCache, _ResponseCache.set.__name__) as mock_set:
         result = service.create_structured_output(
-            "hello", _Output, use_cache=True, name="__error__"
+            "hello", _Output, use_cache=True, kwargs={"name": "__error__"}
         )
         mock_set.assert_not_called()
     assert isinstance(result, _RefusalError)
@@ -96,7 +104,7 @@ def test_error_object_from_generate_async_propagates() -> None:
     service = _ConcreteService()
     result = asyncio.run(
         service.create_structured_output_async(
-            "hello", _Output, use_cache=False, name="__error__"
+            "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
         )
     )
     assert isinstance(result, _RefusalError)
@@ -170,19 +178,19 @@ def test_cache_miss_calls_generate_and_stores() -> None:
 
 def test_non_pydantic_type_wrapped_in_model() -> None:
     class _StrService(_ConcreteService):
-        def _generate(  # type: ignore[override]
+        def _generate(
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            **_kwargs: Unpack[_ConcreteKwargs],
+            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
-        async def _generate_async(  # type: ignore[override]
+        async def _generate_async(
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            **_kwargs: Unpack[_ConcreteKwargs],
+            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
@@ -194,7 +202,7 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
 def test_non_pydantic_type_propagates_error_object() -> None:
     service = _ConcreteService()
     result = service.create_structured_output(  # type: ignore[type-var]
-        "prompt", str, use_cache=False, name="__error__"
+        "prompt", str, use_cache=False, kwargs={"name": "__error__"}
     )
     assert isinstance(result, _RefusalError)
 
@@ -203,7 +211,7 @@ def test_async_non_pydantic_type_propagates_error_object() -> None:
     service = _ConcreteService()
     result = asyncio.run(
         service.create_structured_output_async(  # type: ignore[type-var]
-            "prompt", str, use_cache=False, name="__error__"
+            "prompt", str, use_cache=False, kwargs={"name": "__error__"}
         )
     )
     assert isinstance(result, _RefusalError)
@@ -283,19 +291,19 @@ def test_async_cache_miss_stores_result() -> None:
 
 def test_async_non_pydantic_type_wrapped() -> None:
     class _AsyncStrService(_ConcreteService):
-        def _generate(  # type: ignore[override]
+        def _generate(
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            **_kwargs: Unpack[_ConcreteKwargs],
+            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 
-        async def _generate_async(  # type: ignore[override]
+        async def _generate_async(
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            **_kwargs: Unpack[_ConcreteKwargs],
+            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Protocol, TypeVar, cast
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import ClassVar, Generic, Protocol, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, create_model
 
@@ -10,14 +12,18 @@ from structured_output_creator._models import _ErrorObject, _Message, _Role
 
 T = TypeVar("T", bound=BaseModel)
 PydanticType = TypeVar("PydanticType", bound=BaseModel)
+KwargsT = TypeVar("KwargsT", bound=Mapping[str, object])
 _ValueT = TypeVar("_ValueT")
+
+_NO_KWARGS: Mapping[str, object] = MappingProxyType({})
+_DEFAULT_KWARGS: KwargsT = _NO_KWARGS  # type: ignore[valid-type]
 
 
 class _ValueHolder(Protocol[_ValueT]):
     value: _ValueT
 
 
-class _BaseService(BaseModel, ABC):
+class _BaseService(BaseModel, ABC, Generic[KwargsT]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -30,7 +36,7 @@ class _BaseService(BaseModel, ABC):
         output_type: type[T],
         *,
         use_cache: bool = False,
-        **kwargs: object,
+        kwargs: KwargsT = _DEFAULT_KWARGS,
     ) -> T | _ErrorObject:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
@@ -40,7 +46,7 @@ class _BaseService(BaseModel, ABC):
         if not issubclass(output_type, BaseModel):
             wrapper_type = create_model("Model", value=(output_type, ...))
             wrapped = self.create_structured_output(
-                messages, wrapper_type, use_cache=use_cache, **kwargs
+                messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
             if isinstance(wrapped, _ErrorObject):
                 return wrapped
@@ -52,7 +58,7 @@ class _BaseService(BaseModel, ABC):
             cached = _default_cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = self._generate(messages, output_type, **kwargs)
+        result = self._generate(messages, output_type, kwargs)
         if use_cache and not isinstance(result, _ErrorObject):
             _default_cache.set(key, result.model_dump())
         return result
@@ -63,7 +69,7 @@ class _BaseService(BaseModel, ABC):
         output_type: type[T],
         *,
         use_cache: bool = False,
-        **kwargs: object,
+        kwargs: KwargsT = _DEFAULT_KWARGS,
     ) -> T | _ErrorObject:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
@@ -73,7 +79,7 @@ class _BaseService(BaseModel, ABC):
         if not issubclass(output_type, BaseModel):
             wrapper_type = create_model("Model", value=(output_type, ...))
             wrapped = await self.create_structured_output_async(
-                messages, wrapper_type, use_cache=use_cache, **kwargs
+                messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
             if isinstance(wrapped, _ErrorObject):
                 return wrapped
@@ -85,7 +91,7 @@ class _BaseService(BaseModel, ABC):
             cached = _default_cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = await self._generate_async(messages, output_type, **kwargs)
+        result = await self._generate_async(messages, output_type, kwargs)
         if use_cache and not isinstance(result, _ErrorObject):
             _default_cache.set(key, result.model_dump())
         return result
@@ -95,7 +101,7 @@ class _BaseService(BaseModel, ABC):
         self,
         messages: list[_Message],
         output_type: type[PydanticType],
-        **kwargs: object,
+        kwargs: KwargsT = _DEFAULT_KWARGS,
     ) -> PydanticType | _ErrorObject: ...
 
     @abstractmethod
@@ -103,5 +109,5 @@ class _BaseService(BaseModel, ABC):
         self,
         messages: list[_Message],
         output_type: type[PydanticType],
-        **kwargs: object,
+        kwargs: KwargsT = _DEFAULT_KWARGS,
     ) -> PydanticType | _ErrorObject: ...

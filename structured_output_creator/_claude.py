@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal, TypeVar
+from typing import ClassVar, Literal, TypeVar, cast
 
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import TypedDict, Unpack
+from typing_extensions import TypedDict
 
-from structured_output_creator._base_service import _BaseService
+from structured_output_creator._base_service import _NO_KWARGS, _BaseService
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -41,7 +41,10 @@ class _ClaudeKwargs(TypedDict, total=False):
     stop_sequences: list[str]
 
 
-class _ClaudeService(_BaseService):
+_NO_CLAUDE_KWARGS = cast("_ClaudeKwargs", _NO_KWARGS)
+
+
+class _ClaudeService(_BaseService[_ClaudeKwargs]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -55,11 +58,11 @@ class _ClaudeService(_BaseService):
         default_factory=AsyncAnthropic, exclude=True
     )
 
-    def _generate(  # type: ignore[override]
+    def _generate(
         self,
         messages: list[_Message],
         output_type: type[T],
-        **kwargs: Unpack[_ClaudeKwargs],
+        kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
         response = self.client.beta.messages.parse(
             model=self.model,
@@ -78,11 +81,11 @@ class _ClaudeService(_BaseService):
             return response.parsed_output
         return _error_from_response(response)
 
-    async def _generate_async(  # type: ignore[override]
+    async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
-        **kwargs: Unpack[_ClaudeKwargs],
+        kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
         response = await self.async_client.beta.messages.parse(
             model=self.model,

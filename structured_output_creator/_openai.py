@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal, TypeVar
+from typing import ClassVar, Literal, TypeVar, cast
 
 from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import (
@@ -11,9 +11,9 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import TypedDict, Unpack
+from typing_extensions import TypedDict
 
-from structured_output_creator._base_service import _BaseService
+from structured_output_creator._base_service import _NO_KWARGS, _BaseService
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -45,6 +45,9 @@ class _OpenAIKwargs(TypedDict, total=False):
     seed: int
 
 
+_NO_OPENAI_KWARGS = cast("_OpenAIKwargs", _NO_KWARGS)
+
+
 def _as_oai_param(msg: _Message) -> ChatCompletionMessageParam:
     if msg.role == _Role.user:
         return ChatCompletionUserMessageParam(role="user", content=msg.content)
@@ -55,7 +58,7 @@ def _as_oai_param(msg: _Message) -> ChatCompletionMessageParam:
     return ChatCompletionSystemMessageParam(role="system", content=msg.content)
 
 
-class _OpenAIService(_BaseService):
+class _OpenAIService(_BaseService[_OpenAIKwargs]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -67,11 +70,11 @@ class _OpenAIService(_BaseService):
         default_factory=AsyncOpenAI, exclude=True
     )
 
-    def _generate(  # type: ignore[override]
+    def _generate(
         self,
         messages: list[_Message],
         output_type: type[T],
-        **kwargs: Unpack[_OpenAIKwargs],
+        kwargs: _OpenAIKwargs = _NO_OPENAI_KWARGS,
     ) -> T | _ErrorObject:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
@@ -84,11 +87,11 @@ class _OpenAIService(_BaseService):
             return message.parsed
         return _error_from_message(message)
 
-    async def _generate_async(  # type: ignore[override]
+    async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
-        **kwargs: Unpack[_OpenAIKwargs],
+        kwargs: _OpenAIKwargs = _NO_OPENAI_KWARGS,
     ) -> T | _ErrorObject:
         completion = await self.async_client.beta.chat.completions.parse(
             model=self.model,

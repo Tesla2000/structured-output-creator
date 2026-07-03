@@ -77,7 +77,7 @@ def test_openai_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        temperature=custom_temperature,
+        kwargs={"temperature": custom_temperature},
     )
     assert (
         mock_client.beta.chat.completions.parse.call_args.kwargs["temperature"]
@@ -205,7 +205,7 @@ def test_openai_generate_async_custom_temperature_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            temperature=custom_temperature,
+            kwargs={"temperature": custom_temperature},
         )
     )
     assert (

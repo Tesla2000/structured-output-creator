@@ -126,7 +126,7 @@ def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        max_tokens=custom_max_tokens,
+        kwargs={"max_tokens": custom_max_tokens},
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
@@ -148,7 +148,7 @@ def test_claude_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="t")],
         _Output,
-        temperature=custom_temperature,
+        kwargs={"temperature": custom_temperature},
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["temperature"]
@@ -282,7 +282,7 @@ def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            max_tokens=custom_max_tokens,
+            kwargs={"max_tokens": custom_max_tokens},
         )
     )
     assert (
