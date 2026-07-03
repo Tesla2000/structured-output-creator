@@ -5,8 +5,9 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from structured_output_creator._cache import _ResponseCache
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator import ClaudeService, Message, Role
+
+_ResponseCache = type(ClaudeService.model_construct().cache)
 
 
 class _SampleModel(BaseModel):
@@ -23,8 +24,8 @@ class _OtherService(_FakeService):
     pass
 
 
-def _make_messages() -> list[_Message]:
-    return [_Message(role=_Role.user, content="hello")]
+def _make_messages() -> list[Message]:
+    return [Message(role=Role.user, content="hello")]
 
 
 def test_make_key_deterministic() -> None:
@@ -37,8 +38,8 @@ def test_make_key_deterministic() -> None:
 
 def test_make_key_differs_on_messages() -> None:
     service = _FakeService()
-    msgs_a = [_Message(role=_Role.user, content="hello")]
-    msgs_b = [_Message(role=_Role.user, content="world")]
+    msgs_a = [Message(role=Role.user, content="hello")]
+    msgs_b = [Message(role=Role.user, content="world")]
     assert _ResponseCache.make_key(
         msgs_a, _SampleModel, service
     ) != _ResponseCache.make_key(msgs_b, _SampleModel, service)
