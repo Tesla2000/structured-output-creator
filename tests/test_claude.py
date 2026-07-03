@@ -6,9 +6,16 @@ from unittest.mock import AsyncMock, MagicMock
 from anthropic import Anthropic, AsyncAnthropic, omit
 from pydantic import BaseModel
 
-from structured_output_creator._claude import _ClaudeService
+from structured_output_creator._claude import (
+    _DEFAULT_MAX_TOKENS,
+    _ClaudeService,
+)
 from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._types import _ProviderType
+
+_CUSTOM_MAX_TOKENS = 1024
+_CUSTOM_MAX_TOKENS_ASYNC = 512
+_CUSTOM_TEMPERATURE = 0.5
 
 
 class _Output(BaseModel):
@@ -51,7 +58,7 @@ def test_claude_generate_calls_parse() -> None:
 
     mock_client.beta.messages.parse.assert_called_once_with(
         model="claude-haiku-4-5",
-        max_tokens=4096,
+        max_tokens=_DEFAULT_MAX_TOKENS,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
         temperature=omit,
@@ -99,7 +106,8 @@ def test_claude_generate_default_max_tokens() -> None:
     )
     service._generate([_Message(role=_Role.user, content="test")], _Output)  # noqa: SLF001
     assert (
-        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 4096
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == _DEFAULT_MAX_TOKENS
     )
 
 
@@ -116,10 +124,11 @@ def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"max_tokens": 1024},
+        kwargs={"max_tokens": _CUSTOM_MAX_TOKENS},
     )
     assert (
-        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"] == 1024
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == _CUSTOM_MAX_TOKENS
     )
 
 
@@ -136,10 +145,11 @@ def test_claude_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="t")],
         _Output,
-        kwargs={"temperature": 0.5},
+        kwargs={"temperature": _CUSTOM_TEMPERATURE},
     )
     assert (
-        mock_client.beta.messages.parse.call_args.kwargs["temperature"] == 0.5
+        mock_client.beta.messages.parse.call_args.kwargs["temperature"]
+        == _CUSTOM_TEMPERATURE
     )
 
 
@@ -180,7 +190,7 @@ def test_claude_generate_async_calls_parse() -> None:
 
     mock_async_client.beta.messages.parse.assert_called_once_with(
         model="claude-haiku-4-5",
-        max_tokens=4096,
+        max_tokens=_DEFAULT_MAX_TOKENS,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
         temperature=omit,
@@ -247,10 +257,10 @@ def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"max_tokens": 512},
+            kwargs={"max_tokens": _CUSTOM_MAX_TOKENS_ASYNC},
         )
     )
     assert (
         mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"]
-        == 512
+        == _CUSTOM_MAX_TOKENS_ASYNC
     )

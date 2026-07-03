@@ -93,7 +93,7 @@ def test_cache_thread_safety() -> None:
     def writer(i: int) -> None:
         try:
             cache.set(f"key{i}", {"value": i})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             errors.append(e)
 
     threads = [threading.Thread(target=writer, args=(i,)) for i in range(50)]

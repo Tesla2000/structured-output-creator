@@ -10,6 +10,9 @@ from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._openai import _OpenAIService
 from structured_output_creator._types import _ProviderType
 
+_CUSTOM_TEMPERATURE = 0.5
+_CUSTOM_TEMPERATURE_ASYNC = 0.7
+
 
 class _Output(BaseModel):
     name: str
@@ -71,11 +74,11 @@ def test_openai_generate_custom_temperature_via_kwargs() -> None:
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"temperature": 0.5},
+        kwargs={"temperature": _CUSTOM_TEMPERATURE},
     )
     assert (
         mock_client.beta.chat.completions.parse.call_args.kwargs["temperature"]
-        == 0.5
+        == _CUSTOM_TEMPERATURE
     )
 
 
@@ -173,12 +176,12 @@ def test_openai_generate_async_custom_temperature_via_kwargs() -> None:
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"temperature": 0.7},
+            kwargs={"temperature": _CUSTOM_TEMPERATURE_ASYNC},
         )
     )
     assert (
         mock_async_client.beta.chat.completions.parse.call_args.kwargs[
             "temperature"
         ]
-        == 0.7
+        == _CUSTOM_TEMPERATURE_ASYNC
     )

@@ -135,7 +135,8 @@ def test_cache_hit_returns_without_generate() -> None:
     _default_cache.set(key, {"name": "from-cache"})
 
     with patch.object(
-        _ConcreteService, _ConcreteService._generate.__name__
+        _ConcreteService,
+        _ConcreteService._generate.__name__,  # noqa: SLF001
     ) as mock_gen:
         result = service.create_structured_output(
             "cached", _Output, use_cache=True
@@ -225,7 +226,8 @@ def test_async_cache_hit_skips_generate() -> None:
     _default_cache.set(key, {"name": "async-from-cache"})
 
     with patch.object(
-        _ConcreteService, _ConcreteService._generate_async.__name__
+        _ConcreteService,
+        _ConcreteService._generate_async.__name__,  # noqa: SLF001
     ) as mock_gen:
         result = asyncio.run(
             service.create_structured_output_async(
