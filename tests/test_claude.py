@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from anthropic import Anthropic, AsyncAnthropic, omit
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from structured_output_creator._claude import _ClaudeService
 from structured_output_creator._models import (
@@ -40,6 +41,171 @@ def test_claude_service_type_field() -> None:
         async_client=MagicMock(spec=AsyncAnthropic),
     )
     assert service.service_type == _ProviderType.claude
+
+
+def test_claude_max_tokens_looked_up_for_default_model() -> None:
+    haiku_max_tokens = 64_000
+    service = _ClaudeService(
+        client=MagicMock(spec=Anthropic),
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    assert service.max_tokens == haiku_max_tokens
+
+
+def test_claude_max_tokens_looked_up_for_explicit_known_model() -> None:
+    opus_4_1_max_tokens = 32_000
+    service = _ClaudeService(
+        model="claude-opus-4-1",
+        client=MagicMock(spec=Anthropic),
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    assert service.max_tokens == opus_4_1_max_tokens
+
+
+def test_claude_max_tokens_raises_for_unknown_model() -> None:
+    with pytest.raises(ValidationError, match="max_tokens"):
+        _ClaudeService(
+            model="claude-definitely-not-a-real-model",
+            client=MagicMock(spec=Anthropic),
+            async_client=MagicMock(spec=AsyncAnthropic),
+        )
+
+
+def test_claude_explicit_max_tokens_overrides_lookup() -> None:
+    explicit_max_tokens = 1234
+    service = _ClaudeService(
+        model="claude-opus-4-1",
+        max_tokens=explicit_max_tokens,
+        client=MagicMock(spec=Anthropic),
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    assert service.max_tokens == explicit_max_tokens
+
+
+def test_claude_explicit_max_tokens_from_another_models_table_value_is_kept() -> (
+    None
+):
+    haiku_max_tokens = 64_000
+    service = _ClaudeService(
+        model="claude-opus-4-1",
+        max_tokens=haiku_max_tokens,
+        client=MagicMock(spec=Anthropic),
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    assert service.max_tokens == haiku_max_tokens
+
+
+def test_claude_explicit_max_tokens_allowed_for_unknown_model() -> None:
+    explicit_max_tokens = 123
+    service = _ClaudeService(
+        model="claude-definitely-not-a-real-model",
+        max_tokens=explicit_max_tokens,
+        client=MagicMock(spec=Anthropic),
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    assert service.max_tokens == explicit_max_tokens
+
+
+def test_claude_generate_uses_looked_up_max_tokens_for_known_model() -> None:
+    sonnet_5_max_tokens = 128_000
+    mock_client = MagicMock(spec=Anthropic)
+    mock_client.beta.messages.parse.return_value = _parsed_response(
+        _Output(name="F")
+    )
+    service = _ClaudeService(
+        model="claude-sonnet-5",
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    result = service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="hi")], _Output
+    )
+    assert (
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == sonnet_5_max_tokens
+    )
+    assert isinstance(result, _Output)
+
+
+def test_claude_generate_uses_default_models_looked_up_max_tokens() -> None:
+    haiku_max_tokens = 64_000
+    mock_client = MagicMock(spec=Anthropic)
+    mock_client.beta.messages.parse.return_value = _parsed_response(
+        _Output(name="G")
+    )
+    service = _ClaudeService(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    service._generate([_Message(role=_Role.user, content="hi")], _Output)  # noqa: SLF001
+    assert (
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == haiku_max_tokens
+    )
+
+
+def test_claude_generate_uses_explicit_max_tokens_over_lookup() -> None:
+    explicit_max_tokens = 4242
+    mock_client = MagicMock(spec=Anthropic)
+    mock_client.beta.messages.parse.return_value = _parsed_response(
+        _Output(name="H")
+    )
+    service = _ClaudeService(
+        model="claude-opus-4-1",
+        max_tokens=explicit_max_tokens,
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncAnthropic),
+    )
+    service._generate([_Message(role=_Role.user, content="hi")], _Output)  # noqa: SLF001
+    assert (
+        mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == explicit_max_tokens
+    )
+
+
+def test_claude_generate_async_uses_looked_up_max_tokens() -> None:
+    sonnet_5_max_tokens = 128_000
+    mock_async_client = MagicMock(spec=AsyncAnthropic)
+    mock_async_client.beta.messages.parse = AsyncMock(
+        return_value=_parsed_response(_Output(name="I"))
+    )
+    service = _ClaudeService(
+        model="claude-sonnet-5",
+        client=MagicMock(spec=Anthropic),
+        async_client=mock_async_client,
+    )
+    asyncio.run(
+        service._generate_async(  # noqa: SLF001
+            [_Message(role=_Role.user, content="hi")], _Output
+        )
+    )
+    assert (
+        mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == sonnet_5_max_tokens
+    )
+
+
+def test_claude_generate_async_uses_explicit_max_tokens_over_lookup() -> None:
+    explicit_max_tokens = 4343
+    mock_async_client = MagicMock(spec=AsyncAnthropic)
+    mock_async_client.beta.messages.parse = AsyncMock(
+        return_value=_parsed_response(_Output(name="J"))
+    )
+    service = _ClaudeService(
+        model="claude-opus-4-1",
+        max_tokens=explicit_max_tokens,
+        client=MagicMock(spec=Anthropic),
+        async_client=mock_async_client,
+    )
+    asyncio.run(
+        service._generate_async(  # noqa: SLF001
+            [_Message(role=_Role.user, content="hi")], _Output
+        )
+    )
+    assert (
+        mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"]
+        == explicit_max_tokens
+    )
 
 
 def test_claude_generate_calls_parse() -> None:
