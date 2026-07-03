@@ -3,16 +3,30 @@ from __future__ import annotations
 from typing import ClassVar, Literal, TypeVar
 
 from anthropic import Anthropic, AsyncAnthropic
+from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
 from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import _BaseService
-from structured_output_creator._models import _Message
+from structured_output_creator._models import _ErrorObject, _Message
 from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
 
 _DEFAULT_MAX_TOKENS = 4096
+
+
+def _error_from_response(response: BetaMessage) -> _ErrorObject:
+    if response.stop_reason == "refusal":
+        explanation = (
+            response.stop_details.explanation
+            if response.stop_details is not None
+            else None
+        )
+        return _ErrorObject(reason="refusal", message=explanation)
+    return _ErrorObject(
+        reason="no_content", message=f"stop_reason={response.stop_reason}"
+    )
 
 
 class _ClaudeKwargs(TypedDict, total=False):
@@ -43,7 +57,7 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         messages: list[_Message],
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         call_kwargs: dict[str, object] = dict(kwargs or {})
         call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = self.client.beta.messages.parse(
@@ -54,14 +68,16 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
             output_format=output_type,
             **call_kwargs,  # type: ignore[arg-type]
         )
-        return response.parsed_output
+        if response.parsed_output is not None:
+            return response.parsed_output
+        return _error_from_response(response)
 
     async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         call_kwargs: dict[str, object] = dict(kwargs or {})
         call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = await self.async_client.beta.messages.parse(
@@ -72,4 +88,6 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
             output_format=output_type,
             **call_kwargs,  # type: ignore[arg-type]
         )
-        return response.parsed_output
+        if response.parsed_output is not None:
+            return response.parsed_output
+        return _error_from_response(response)

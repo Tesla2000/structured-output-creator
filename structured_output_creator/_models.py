@@ -19,3 +19,12 @@ class _Message(BaseModel):
 
     role: _Role
     content: str
+
+
+class _ErrorObject(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        frozen=True, extra="forbid"
+    )
+
+    reason: str
+    message: str | None = None

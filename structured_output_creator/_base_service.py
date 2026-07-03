@@ -7,7 +7,7 @@ from typing import ClassVar, Generic, Protocol, TypeVar, cast
 from pydantic import BaseModel, ConfigDict, create_model
 
 from structured_output_creator._cache import _default_cache, _ResponseCache
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator._models import _ErrorObject, _Message, _Role
 
 T = TypeVar("T", bound=BaseModel)
 PydanticType = TypeVar("PydanticType", bound=BaseModel)
@@ -33,7 +33,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         *,
         use_cache: bool = False,
         kwargs: KwargsT | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
             if isinstance(prompt_or_messages, str)
@@ -44,8 +44,8 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             wrapped = self.create_structured_output(
                 messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
-            if wrapped is None:
-                return None
+            if isinstance(wrapped, _ErrorObject):
+                return wrapped
             return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
@@ -62,7 +62,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             if cached is not None:
                 return output_type.model_validate(cached)
         result = self._generate(messages, output_type, kwargs)
-        if use_cache and result is not None:
+        if use_cache and not isinstance(result, _ErrorObject):
             _default_cache.set(key, result.model_dump())
         return result
 
@@ -73,7 +73,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         *,
         use_cache: bool = False,
         kwargs: KwargsT | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
             if isinstance(prompt_or_messages, str)
@@ -84,8 +84,8 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             wrapped = await self.create_structured_output_async(
                 messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
-            if wrapped is None:
-                return None
+            if isinstance(wrapped, _ErrorObject):
+                return wrapped
             return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
@@ -102,7 +102,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             if cached is not None:
                 return output_type.model_validate(cached)
         result = await self._generate_async(messages, output_type, kwargs)
-        if use_cache and result is not None:
+        if use_cache and not isinstance(result, _ErrorObject):
             _default_cache.set(key, result.model_dump())
         return result
 
@@ -112,7 +112,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: KwargsT | None = None,
-    ) -> PydanticType | None: ...
+    ) -> PydanticType | _ErrorObject: ...
 
     @abstractmethod
     async def _generate_async(
@@ -120,4 +120,4 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: KwargsT | None = None,
-    ) -> PydanticType | None: ...
+    ) -> PydanticType | _ErrorObject: ...

@@ -8,15 +8,25 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
+    ParsedChatCompletionMessage,
 )
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
 from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import _BaseService
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
+_ContentT = TypeVar("_ContentT")
+
+
+def _error_from_message(
+    message: ParsedChatCompletionMessage[_ContentT],
+) -> _ErrorObject:
+    if message.refusal:
+        return _ErrorObject(reason="refusal", message=message.refusal)
+    return _ErrorObject(reason="no_content", message=None)
 
 
 class _OpenAIKwargs(TypedDict, total=False):
@@ -56,25 +66,31 @@ class _OpenAIService(_BaseService[_OpenAIKwargs]):
         messages: list[_Message],
         output_type: type[T],
         kwargs: _OpenAIKwargs | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
             **(kwargs or {}),
         )
-        return completion.choices[0].message.parsed
+        message = completion.choices[0].message
+        if message.parsed is not None:
+            return message.parsed
+        return _error_from_message(message)
 
     async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
         kwargs: _OpenAIKwargs | None = None,
-    ) -> T | None:
+    ) -> T | _ErrorObject:
         completion = await self.async_client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
             **(kwargs or {}),
         )
-        return completion.choices[0].message.parsed
+        message = completion.choices[0].message
+        if message.parsed is not None:
+            return message.parsed
+        return _error_from_message(message)

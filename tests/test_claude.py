@@ -7,7 +7,7 @@ from anthropic import AsyncAnthropic, Anthropic
 from pydantic import BaseModel
 
 from structured_output_creator._claude import _ClaudeService
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._types import _ProviderType
 
 
@@ -177,9 +177,13 @@ def test_claude_generate_async_calls_parse() -> None:
     assert result.name == "Async"
 
 
-def test_claude_generate_returns_none_on_refusal() -> None:
+def test_claude_generate_returns_error_object_on_refusal() -> None:
     mock_client = MagicMock(spec=Anthropic)
-    mock_client.beta.messages.parse.return_value = MagicMock(parsed_output=None)
+    mock_client.beta.messages.parse.return_value = MagicMock(
+        parsed_output=None,
+        stop_reason="refusal",
+        stop_details=MagicMock(explanation="policy violation"),
+    )
     service = _ClaudeService.model_construct(
         client=mock_client,
         async_client=MagicMock(spec=AsyncAnthropic),
@@ -188,7 +192,29 @@ def test_claude_generate_returns_none_on_refusal() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert result is None
+    assert isinstance(result, _ErrorObject)
+    assert result.reason == "refusal"
+    assert result.message == "policy violation"
+
+
+def test_claude_generate_returns_error_object_on_no_content() -> None:
+    mock_client = MagicMock(spec=Anthropic)
+    mock_client.beta.messages.parse.return_value = MagicMock(
+        parsed_output=None,
+        stop_reason="tool_use",
+        stop_details=None,
+    )
+    service = _ClaudeService.model_construct(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncAnthropic),
+        model="claude-haiku-4-5",
+    )
+    result = service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="hello")], _Output
+    )
+    assert isinstance(result, _ErrorObject)
+    assert result.reason == "no_content"
+    assert result.message == "stop_reason=tool_use"
 
 
 def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:

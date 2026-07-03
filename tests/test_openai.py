@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._openai import _OpenAIService
 from structured_output_creator._types import _ProviderType
 
@@ -95,9 +95,15 @@ def test_openai_generate_omits_unset_optional_params() -> None:
     assert "top_p" not in call_kwargs
 
 
-def test_openai_generate_returns_none_on_refusal() -> None:
+def test_openai_generate_returns_error_object_on_refusal() -> None:
     mock_client = MagicMock(spec=OpenAI)
-    mock_client.beta.chat.completions.parse.return_value = _parsed_response(None)
+    mock_client.beta.chat.completions.parse.return_value = MagicMock(
+        choices=[
+            MagicMock(
+                message=MagicMock(parsed=None, refusal="cannot help with that")
+            )
+        ]
+    )
     service = _OpenAIService.model_construct(
         client=mock_client,
         async_client=MagicMock(spec=AsyncOpenAI),
@@ -106,7 +112,27 @@ def test_openai_generate_returns_none_on_refusal() -> None:
     result = service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="hello")], _Output
     )
-    assert result is None
+    assert isinstance(result, _ErrorObject)
+    assert result.reason == "refusal"
+    assert result.message == "cannot help with that"
+
+
+def test_openai_generate_returns_error_object_on_no_content() -> None:
+    mock_client = MagicMock(spec=OpenAI)
+    mock_client.beta.chat.completions.parse.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(parsed=None, refusal=None))]
+    )
+    service = _OpenAIService.model_construct(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncOpenAI),
+        model="gpt-5.4-mini",
+    )
+    result = service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="hello")], _Output
+    )
+    assert isinstance(result, _ErrorObject)
+    assert result.reason == "no_content"
+    assert result.message is None
 
 
 def test_openai_generate_async_calls_parse() -> None:

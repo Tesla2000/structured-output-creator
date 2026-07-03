@@ -9,7 +9,7 @@ from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import _BaseService, PydanticType
 from structured_output_creator._cache import _ResponseCache, _default_cache
-from structured_output_creator._models import _Message, _Role
+from structured_output_creator._models import _ErrorObject, _Message, _Role
 
 
 class _ConcreteKwargs(TypedDict, total=False):
@@ -24,9 +24,9 @@ class _ConcreteService(_BaseService[_ConcreteKwargs]):
         _messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: _ConcreteKwargs | None = None,
-    ) -> PydanticType | None:
-        if kwargs and kwargs.get("name") == "__none__":
-            return None
+    ) -> PydanticType | _ErrorObject:
+        if kwargs and kwargs.get("name") == "__error__":
+            return _ErrorObject(reason="refusal", message="nope")
         if kwargs and kwargs.get("name"):
             return output_type.model_validate({"name": kwargs["name"]})
         return output_type.model_validate({"name": "generated"})
@@ -36,9 +36,9 @@ class _ConcreteService(_BaseService[_ConcreteKwargs]):
         _messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: _ConcreteKwargs | None = None,
-    ) -> PydanticType | None:
-        if kwargs and kwargs.get("name") == "__none__":
-            return None
+    ) -> PydanticType | _ErrorObject:
+        if kwargs and kwargs.get("name") == "__error__":
+            return _ErrorObject(reason="refusal", message="nope")
         if kwargs and kwargs.get("name"):
             return output_type.model_validate({"name": kwargs["name"]})
         return output_type.model_validate({"name": "async-generated"})
@@ -66,32 +66,34 @@ def test_kwargs_forwarded_to_generate_async() -> None:
     assert result.name == "custom-async"
 
 
-def test_none_from_generate_propagates() -> None:
+def test_error_object_from_generate_propagates() -> None:
     service = _ConcreteService()
     result = service.create_structured_output(
-        "hello", _Output, use_cache=False, kwargs={"name": "__none__"}
+        "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
     )
-    assert result is None
+    assert isinstance(result, _ErrorObject)
+    assert result.reason == "refusal"
+    assert result.message == "nope"
 
 
-def test_none_from_generate_is_not_cached() -> None:
+def test_error_object_from_generate_is_not_cached() -> None:
     service = _ConcreteService()
     with patch.object(_ResponseCache, _ResponseCache.set.__name__) as mock_set:
         result = service.create_structured_output(
-            "hello", _Output, use_cache=True, kwargs={"name": "__none__"}
+            "hello", _Output, use_cache=True, kwargs={"name": "__error__"}
         )
         mock_set.assert_not_called()
-    assert result is None
+    assert isinstance(result, _ErrorObject)
 
 
-def test_none_from_generate_async_propagates() -> None:
+def test_error_object_from_generate_async_propagates() -> None:
     service = _ConcreteService()
     result = asyncio.run(
         service.create_structured_output_async(
-            "hello", _Output, use_cache=False, kwargs={"name": "__none__"}
+            "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
         )
     )
-    assert result is None
+    assert isinstance(result, _ErrorObject)
 
 
 def test_string_prompt_converted_to_message() -> None:
