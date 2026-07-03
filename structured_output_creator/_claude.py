@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal, TypeVar, cast
+from typing import ClassVar, Literal, TypeVar
 
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
-from typing_extensions import Required, TypedDict
 
-from structured_output_creator._base_service import _NO_KWARGS, _BaseService
+from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -17,11 +16,6 @@ from structured_output_creator._models import (
 from structured_output_creator._types import _ProviderType
 
 T = TypeVar("T", bound=BaseModel)
-
-_MAX_TOKENS_REQUIRED = (
-    "Claude requires max_tokens; pass "
-    "kwargs={'max_tokens': N} to create_structured_output"
-)
 
 
 def _error_from_response(response: BetaMessage) -> _ErrorObject:
@@ -35,25 +29,19 @@ def _error_from_response(response: BetaMessage) -> _ErrorObject:
     return _NoContentError(message=f"stop_reason={response.stop_reason}")
 
 
-class _ClaudeKwargs(TypedDict, total=False):
-    max_tokens: Required[int]
-    temperature: float
-    top_p: float
-    top_k: int
-    system: str
-    stop_sequences: list[str]
-
-
-_NO_CLAUDE_KWARGS = cast("_ClaudeKwargs", _NO_KWARGS)
-
-
-class _ClaudeService(_BaseService[_ClaudeKwargs]):
+class _ClaudeService(_BaseService):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
 
     service_type: Literal[_ProviderType.claude] = _ProviderType.claude
     model: str = "claude-haiku-4-5"
+    max_tokens: int = 4096
+    temperature: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    system: str | None = None
+    stop_sequences: list[str] | None = None
     client: InstanceOf[Anthropic] = Field(
         default_factory=Anthropic, exclude=True
     )
@@ -65,22 +53,21 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
-        if "max_tokens" not in kwargs:
-            raise ValueError(_MAX_TOKENS_REQUIRED)
         response = self.client.beta.messages.parse(
             model=self.model,
+            max_tokens=self.max_tokens,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=kwargs["max_tokens"],
-            temperature=kwargs.get("temperature", omit),
-            top_p=kwargs.get("top_p", omit),
-            top_k=kwargs.get("top_k", omit),
-            system=kwargs.get("system", omit),
-            stop_sequences=kwargs.get("stop_sequences", omit),
+            temperature=omit if self.temperature is None else self.temperature,
+            top_p=omit if self.top_p is None else self.top_p,
+            top_k=omit if self.top_k is None else self.top_k,
+            system=omit if self.system is None else self.system,
+            stop_sequences=omit
+            if self.stop_sequences is None
+            else self.stop_sequences,
         )
         if response.parsed_output is not None:
             return response.parsed_output
@@ -90,22 +77,21 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         self,
         messages: list[_Message],
         output_type: type[T],
-        kwargs: _ClaudeKwargs = _NO_CLAUDE_KWARGS,
     ) -> T | _ErrorObject:
-        if "max_tokens" not in kwargs:
-            raise ValueError(_MAX_TOKENS_REQUIRED)
         response = await self.async_client.beta.messages.parse(
             model=self.model,
+            max_tokens=self.max_tokens,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            max_tokens=kwargs["max_tokens"],
-            temperature=kwargs.get("temperature", omit),
-            top_p=kwargs.get("top_p", omit),
-            top_k=kwargs.get("top_k", omit),
-            system=kwargs.get("system", omit),
-            stop_sequences=kwargs.get("stop_sequences", omit),
+            temperature=omit if self.temperature is None else self.temperature,
+            top_p=omit if self.top_p is None else self.top_p,
+            top_k=omit if self.top_k is None else self.top_k,
+            system=omit if self.system is None else self.system,
+            stop_sequences=omit
+            if self.stop_sequences is None
+            else self.stop_sequences,
         )
         if response.parsed_output is not None:
             return response.parsed_output

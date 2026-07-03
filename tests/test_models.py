@@ -21,9 +21,9 @@ def test_message_creation() -> None:
 def test_message_frozen() -> None:
     msg = _Message(role=_Role.user, content="hello")
     with pytest.raises(ValidationError):
-        msg.role = _Role.assistant  # type: ignore[misc]
+        msg.role = _Role.assistant
 
 
 def test_message_extra_forbid() -> None:
     with pytest.raises(ValidationError):
-        _Message(role=_Role.user, content="hello", extra_field="bad")  # type: ignore[call-arg]
+        _Message(role=_Role.user, content="hello", extra_field="bad")

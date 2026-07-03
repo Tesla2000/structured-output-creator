@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+from functools import cache
 from types import TracebackType
 from typing import ClassVar, Protocol, runtime_checkable
 
@@ -37,17 +38,14 @@ class _ResponseCache(BaseModel):
     def make_key(
         messages: list[_Message],
         output_type: type[BaseModel],
-        service_name: str,
-        model: str,
-        **kwargs: object,
+        service: BaseModel,
     ) -> str:
         payload = json.dumps(
             {
-                "messages": [m.model_dump() for m in messages],
+                "messages": [m.model_dump_json() for m in messages],
                 "schema": output_type.model_json_schema(),
-                "service": service_name,
-                "model": model,
-                "kwargs": kwargs,
+                "service": type(service).__name__,
+                "state": service.model_dump_json(),
             },
             sort_keys=True,
         )
@@ -62,4 +60,6 @@ class _ResponseCache(BaseModel):
             self.data[key] = value
 
 
-_default_cache = _ResponseCache()
+@cache
+def _make_default_cache() -> _ResponseCache:
+    return _ResponseCache()

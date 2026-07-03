@@ -35,3 +35,17 @@ class _RefusalError(_ErrorObject):
 
 class _NoContentError(_ErrorObject):
     pass
+
+
+class LLMError(Exception):
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class LLMRefusalError(LLMError):
+    pass
+
+
+class LLMNoContentError(LLMError):
+    pass

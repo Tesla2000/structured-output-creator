@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-from typing import cast
 from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
-from typing_extensions import TypedDict
 
 from structured_output_creator._base_service import (
-    _NO_KWARGS,
     PydanticType,
     _BaseService,
 )
-from structured_output_creator._cache import _default_cache, _ResponseCache
+from structured_output_creator._cache import _ResponseCache
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -22,89 +19,79 @@ from structured_output_creator._models import (
 )
 
 
-class _ConcreteKwargs(TypedDict, total=False):
-    name: str
-
-
-_NO_CONCRETE_KWARGS = cast("_ConcreteKwargs", _NO_KWARGS)
-
-
-class _ConcreteService(_BaseService[_ConcreteKwargs]):
+class _ConcreteService(_BaseService):
     model: str = "test-model"
+    response_name: str = "generated"
 
     def _generate(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
-        kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
     ) -> PydanticType | _ErrorObject:
-        if kwargs.get("name") == "__error__":
+        if self.response_name == "__error__":
             return _RefusalError(message="nope")
-        if kwargs.get("name"):
-            return output_type.model_validate({"name": kwargs["name"]})
-        return output_type.model_validate({"name": "generated"})
+        return output_type.model_validate({"name": self.response_name})
 
     async def _generate_async(
         self,
         _messages: list[_Message],
         output_type: type[PydanticType],
-        kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
     ) -> PydanticType | _ErrorObject:
-        if kwargs.get("name") == "__error__":
+        if self.response_name == "__error__":
             return _RefusalError(message="nope")
-        if kwargs.get("name"):
-            return output_type.model_validate({"name": kwargs["name"]})
-        return output_type.model_validate({"name": "async-generated"})
+        return output_type.model_validate(
+            {"name": "async-" + self.response_name}
+        )
 
 
 class _Output(BaseModel):
     name: str
 
 
-def test_kwargs_forwarded_to_generate() -> None:
-    service = _ConcreteService()
+def test_field_value_used_in_generate() -> None:
+    service = _ConcreteService(response_name="custom")
     result = service.create_structured_output(
-        "hello", _Output, use_cache=False, kwargs={"name": "custom"}
+        "hello", _Output, use_cache=False
     )
     assert isinstance(result, _Output)
     assert result.name == "custom"
 
 
-def test_kwargs_forwarded_to_generate_async() -> None:
-    service = _ConcreteService()
+def test_field_value_used_in_generate_async() -> None:
+    service = _ConcreteService(response_name="custom")
     result = asyncio.run(
         service.create_structured_output_async(
-            "hello", _Output, use_cache=False, kwargs={"name": "custom-async"}
+            "hello", _Output, use_cache=False
         )
     )
     assert isinstance(result, _Output)
-    assert result.name == "custom-async"
+    assert result.name == "async-custom"
 
 
 def test_error_object_from_generate_propagates() -> None:
-    service = _ConcreteService()
+    service = _ConcreteService(response_name="__error__")
     result = service.create_structured_output(
-        "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
+        "hello", _Output, use_cache=False
     )
     assert isinstance(result, _RefusalError)
     assert result.message == "nope"
 
 
 def test_error_object_from_generate_is_not_cached() -> None:
-    service = _ConcreteService()
+    service = _ConcreteService(response_name="__error__")
     with patch.object(_ResponseCache, _ResponseCache.set.__name__) as mock_set:
         result = service.create_structured_output(
-            "hello", _Output, use_cache=True, kwargs={"name": "__error__"}
+            "hello", _Output, use_cache=True
         )
         mock_set.assert_not_called()
     assert isinstance(result, _RefusalError)
 
 
 def test_error_object_from_generate_async_propagates() -> None:
-    service = _ConcreteService()
+    service = _ConcreteService(response_name="__error__")
     result = asyncio.run(
         service.create_structured_output_async(
-            "hello", _Output, use_cache=False, kwargs={"name": "__error__"}
+            "hello", _Output, use_cache=False
         )
     )
     assert isinstance(result, _RefusalError)
@@ -141,10 +128,9 @@ def test_cache_hit_returns_without_generate() -> None:
     key = _ResponseCache.make_key(
         [_Message(role=_Role.user, content="cached")],
         _Output,
-        "_ConcreteService",
-        "test-model",
+        service,
     )
-    _default_cache.set(key, {"name": "from-cache"})
+    service.cache.set(key, {"name": "from-cache"})
 
     with patch.object(
         _ConcreteService,
@@ -157,7 +143,7 @@ def test_cache_hit_returns_without_generate() -> None:
 
     assert isinstance(result, _Output)
     assert result.name == "from-cache"
-    _default_cache.data.pop(key, None)
+    service.cache.data.pop(key, None)
 
 
 def test_cache_miss_calls_generate_and_stores() -> None:
@@ -182,7 +168,6 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
@@ -190,36 +175,31 @@ def test_non_pydantic_type_wrapped_in_model() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "hello"})
 
     service = _StrService()
-    result = service.create_structured_output("prompt", str, use_cache=False)  # type: ignore[type-var]
+    result = service.create_structured_output("prompt", str, use_cache=False)
     assert result == "hello"
 
 
 def test_non_pydantic_type_propagates_error_object() -> None:
-    service = _ConcreteService()
-    result = service.create_structured_output(  # type: ignore[type-var]
-        "prompt", str, use_cache=False, kwargs={"name": "__error__"}
-    )
+    service = _ConcreteService(response_name="__error__")
+    result = service.create_structured_output("prompt", str, use_cache=False)
     assert isinstance(result, _RefusalError)
 
 
 def test_async_non_pydantic_type_propagates_error_object() -> None:
-    service = _ConcreteService()
+    service = _ConcreteService(response_name="__error__")
     result = asyncio.run(
-        service.create_structured_output_async(  # type: ignore[type-var]
-            "prompt", str, use_cache=False, kwargs={"name": "__error__"}
-        )
+        service.create_structured_output_async("prompt", str, use_cache=False)
     )
     assert isinstance(result, _RefusalError)
 
 
 def test_base_service_cannot_be_instantiated() -> None:
     with pytest.raises(TypeError):
-        _BaseService(model="x")  # type: ignore[abstract]
+        _BaseService(model="x")
 
 
 def test_async_string_prompt_converted() -> None:
@@ -250,10 +230,9 @@ def test_async_cache_hit_skips_generate() -> None:
     key = _ResponseCache.make_key(
         [_Message(role=_Role.user, content="async-cached")],
         _Output,
-        "_ConcreteService",
-        "test-model",
+        service,
     )
-    _default_cache.set(key, {"name": "async-from-cache"})
+    service.cache.set(key, {"name": "async-from-cache"})
 
     with patch.object(
         _ConcreteService,
@@ -268,7 +247,7 @@ def test_async_cache_hit_skips_generate() -> None:
 
     assert isinstance(result, _Output)
     assert result.name == "async-from-cache"
-    _default_cache.data.pop(key, None)
+    service.cache.data.pop(key, None)
 
 
 def test_async_cache_miss_stores_result() -> None:
@@ -295,7 +274,6 @@ def test_async_non_pydantic_type_wrapped() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 
@@ -303,12 +281,11 @@ def test_async_non_pydantic_type_wrapped() -> None:
             self,
             _messages: list[_Message],
             output_type: type[PydanticType],
-            _kwargs: _ConcreteKwargs = _NO_CONCRETE_KWARGS,
         ) -> PydanticType:
             return output_type.model_validate({"value": "async-hello"})
 
     service = _AsyncStrService()
     result = asyncio.run(
-        service.create_structured_output_async("prompt", str, use_cache=False)  # type: ignore[type-var]
+        service.create_structured_output_async("prompt", str, use_cache=False)
     )
     assert result == "async-hello"

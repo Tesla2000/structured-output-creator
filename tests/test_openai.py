@@ -63,21 +63,21 @@ def test_openai_generate_calls_parse_with_correct_args() -> None:
     assert result.name == "Alice"
 
 
-def test_openai_generate_custom_temperature_via_kwargs() -> None:
+def test_openai_generate_custom_temperature() -> None:
     mock_client = MagicMock(spec=OpenAI)
     mock_client.beta.chat.completions.parse.return_value = _parsed_response(
         _Output(name="Bob")
     )
+    custom_temperature = 0.5
     service = _OpenAIService.model_construct(
         client=mock_client,
         async_client=MagicMock(spec=AsyncOpenAI),
         model="gpt-5.4-mini",
+        temperature=custom_temperature,
     )
-    custom_temperature = 0.5
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"temperature": custom_temperature},
     )
     assert (
         mock_client.beta.chat.completions.parse.call_args.kwargs["temperature"]
@@ -190,22 +190,22 @@ def test_openai_generate_async_calls_parse() -> None:
     assert result.name == "Async"
 
 
-def test_openai_generate_async_custom_temperature_via_kwargs() -> None:
+def test_openai_generate_async_custom_temperature() -> None:
     mock_async_client = MagicMock(spec=AsyncOpenAI)
     mock_async_client.beta.chat.completions.parse = AsyncMock(
         return_value=_parsed_response(_Output(name="C"))
     )
+    custom_temperature = 0.7
     service = _OpenAIService.model_construct(
         client=MagicMock(spec=OpenAI),
         async_client=mock_async_client,
         model="gpt-5.4-mini",
+        temperature=custom_temperature,
     )
-    custom_temperature = 0.7
     asyncio.run(
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"temperature": custom_temperature},
         )
     )
     assert (

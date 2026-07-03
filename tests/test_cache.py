@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import threading
+from typing import ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from structured_output_creator._cache import _ResponseCache
 from structured_output_creator._models import _Message, _Role
@@ -12,66 +13,71 @@ class _SampleModel(BaseModel):
     name: str
 
 
+class _FakeService(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
+    model: str = "default"
+    temperature: float | None = None
+
+
+class _OtherService(_FakeService):
+    pass
+
+
 def _make_messages() -> list[_Message]:
     return [_Message(role=_Role.user, content="hello")]
 
 
 def test_make_key_deterministic() -> None:
+    service = _FakeService(model="gpt-4o")
     messages = _make_messages()
-    key1 = _ResponseCache.make_key(
-        messages, _SampleModel, "TestService", "gpt-4o"
-    )
-    key2 = _ResponseCache.make_key(
-        messages, _SampleModel, "TestService", "gpt-4o"
-    )
-    assert key1 == key2
+    assert _ResponseCache.make_key(
+        messages, _SampleModel, service
+    ) == _ResponseCache.make_key(messages, _SampleModel, service)
 
 
 def test_make_key_differs_on_messages() -> None:
+    service = _FakeService()
     msgs_a = [_Message(role=_Role.user, content="hello")]
     msgs_b = [_Message(role=_Role.user, content="world")]
-    key_a = _ResponseCache.make_key(msgs_a, _SampleModel, "Service", "model")
-    key_b = _ResponseCache.make_key(msgs_b, _SampleModel, "Service", "model")
-    assert key_a != key_b
+    assert _ResponseCache.make_key(
+        msgs_a, _SampleModel, service
+    ) != _ResponseCache.make_key(msgs_b, _SampleModel, service)
 
 
 def test_make_key_differs_on_service_name() -> None:
     messages = _make_messages()
-    key_a = _ResponseCache.make_key(
-        messages, _SampleModel, "ServiceA", "model"
-    )
-    key_b = _ResponseCache.make_key(
-        messages, _SampleModel, "ServiceB", "model"
-    )
+    key_a = _ResponseCache.make_key(messages, _SampleModel, _FakeService())
+    key_b = _ResponseCache.make_key(messages, _SampleModel, _OtherService())
     assert key_a != key_b
 
 
 def test_make_key_differs_on_model() -> None:
     messages = _make_messages()
     key_a = _ResponseCache.make_key(
-        messages, _SampleModel, "Service", "gpt-4o"
+        messages, _SampleModel, _FakeService(model="gpt-4o")
     )
     key_b = _ResponseCache.make_key(
-        messages, _SampleModel, "Service", "gpt-3.5"
+        messages, _SampleModel, _FakeService(model="gpt-3.5")
     )
     assert key_a != key_b
 
 
-def test_make_key_differs_on_kwargs() -> None:
+def test_make_key_differs_on_state() -> None:
     messages = _make_messages()
     key_a = _ResponseCache.make_key(
-        messages, _SampleModel, "Service", "model", temperature=0.5
+        messages, _SampleModel, _FakeService(temperature=0.5)
     )
     key_b = _ResponseCache.make_key(
-        messages, _SampleModel, "Service", "model", temperature=0.9
+        messages, _SampleModel, _FakeService(temperature=0.9)
     )
     assert key_a != key_b
 
 
-def test_make_key_stable_without_kwargs() -> None:
+def test_make_key_stable_without_extra_state() -> None:
     messages = _make_messages()
-    key_a = _ResponseCache.make_key(messages, _SampleModel, "Service", "model")
-    key_b = _ResponseCache.make_key(messages, _SampleModel, "Service", "model")
+    service = _FakeService()
+    key_a = _ResponseCache.make_key(messages, _SampleModel, service)
+    key_b = _ResponseCache.make_key(messages, _SampleModel, service)
     assert key_a == key_b
 
 

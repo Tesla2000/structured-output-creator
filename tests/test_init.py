@@ -16,6 +16,10 @@ def test_all_contains_base_exports() -> None:
     assert "ErrorObject" in structured_output_creator.__all__
     assert "RefusalError" in structured_output_creator.__all__
     assert "NoContentError" in structured_output_creator.__all__
+    assert "LLMError" in structured_output_creator.__all__
+    assert "LLMRefusalError" in structured_output_creator.__all__
+    assert "LLMNoContentError" in structured_output_creator.__all__
+    assert "RaisingService" in structured_output_creator.__all__
 
 
 def test_all_contains_openai_service() -> None:
@@ -38,7 +42,7 @@ def test_openai_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
         sys.modules, "structured_output_creator._openai", raising=False
     )
 
-    with patch.dict(sys.modules, {"openai": None}):  # type: ignore[dict-item]
+    with patch.dict(sys.modules, {"openai": None}):
         soc = importlib.import_module("structured_output_creator")
         assert "OpenAIService" not in soc.__all__
 
@@ -55,7 +59,7 @@ def test_claude_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
         sys.modules, "structured_output_creator._claude", raising=False
     )
 
-    with patch.dict(sys.modules, {"anthropic": None}):  # type: ignore[dict-item]
+    with patch.dict(sys.modules, {"anthropic": None}):
         soc = importlib.import_module("structured_output_creator")
         assert "ClaudeService" not in soc.__all__
 
