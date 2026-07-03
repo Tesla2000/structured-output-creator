@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Literal, TypeVar
 
-from anthropic import Anthropic, AsyncAnthropic
+from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
 from typing_extensions import TypedDict
@@ -58,15 +58,19 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
     ) -> T | _ErrorObject:
-        call_kwargs: dict[str, object] = dict(kwargs or {})
-        call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
+        resolved = kwargs or {}
         response = self.client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            **call_kwargs,  # type: ignore[arg-type]
+            max_tokens=resolved.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            temperature=resolved.get("temperature", omit),
+            top_p=resolved.get("top_p", omit),
+            top_k=resolved.get("top_k", omit),
+            system=resolved.get("system", omit),
+            stop_sequences=resolved.get("stop_sequences", omit),
         )
         if response.parsed_output is not None:
             return response.parsed_output
@@ -78,15 +82,19 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
     ) -> T | _ErrorObject:
-        call_kwargs: dict[str, object] = dict(kwargs or {})
-        call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
+        resolved = kwargs or {}
         response = await self.async_client.beta.messages.parse(
             model=self.model,
             messages=[
                 {"role": m.role.value, "content": m.content} for m in messages
             ],
             output_format=output_type,
-            **call_kwargs,  # type: ignore[arg-type]
+            max_tokens=resolved.get("max_tokens", _DEFAULT_MAX_TOKENS),
+            temperature=resolved.get("temperature", omit),
+            top_p=resolved.get("top_p", omit),
+            top_k=resolved.get("top_k", omit),
+            system=resolved.get("system", omit),
+            stop_sequences=resolved.get("stop_sequences", omit),
         )
         if response.parsed_output is not None:
             return response.parsed_output

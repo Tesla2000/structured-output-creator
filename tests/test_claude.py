@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from anthropic import AsyncAnthropic, Anthropic
+from anthropic import AsyncAnthropic, Anthropic, omit
 from pydantic import BaseModel
 
 from structured_output_creator._claude import _ClaudeService
@@ -54,6 +54,11 @@ def test_claude_generate_calls_parse() -> None:
         max_tokens=4096,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
+        temperature=omit,
+        top_p=omit,
+        top_k=omit,
+        system=omit,
+        stop_sequences=omit,
     )
     assert result.name == "Alice"
 
@@ -145,11 +150,11 @@ def test_claude_generate_omits_unset_optional_params() -> None:
     )
     service._generate([_Message(role=_Role.user, content="t")], _Output)  # noqa: SLF001
     call_kwargs = mock_client.beta.messages.parse.call_args.kwargs
-    assert "temperature" not in call_kwargs
-    assert "top_p" not in call_kwargs
-    assert "top_k" not in call_kwargs
-    assert "system" not in call_kwargs
-    assert "stop_sequences" not in call_kwargs
+    assert call_kwargs["temperature"] is omit
+    assert call_kwargs["top_p"] is omit
+    assert call_kwargs["top_k"] is omit
+    assert call_kwargs["system"] is omit
+    assert call_kwargs["stop_sequences"] is omit
 
 
 def test_claude_generate_async_calls_parse() -> None:
@@ -173,6 +178,11 @@ def test_claude_generate_async_calls_parse() -> None:
         max_tokens=4096,
         messages=[{"role": "user", "content": "hello"}],
         output_format=_Output,
+        temperature=omit,
+        top_p=omit,
+        top_k=omit,
+        system=omit,
+        stop_sequences=omit,
     )
     assert result.name == "Async"
 
