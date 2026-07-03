@@ -3,22 +3,33 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from typing import ClassVar
+from types import TracebackType
+from typing import ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
 
 from structured_output_creator._models import _Message
 
-_LockType = type(threading.Lock())
+
+@runtime_checkable
+class _Lock(Protocol):
+    def __enter__(self) -> bool: ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
 
 
 class _ResponseCache(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
-    data: InstanceOf[dict] = Field(default_factory=dict, exclude=True)  # type: ignore[type-arg]
-    lock: InstanceOf[_LockType] = Field(  # type: ignore[valid-type]
-        default_factory=threading.Lock, exclude=True
+    data: dict[str, dict[str, object]] = Field(
+        default_factory=dict, exclude=True
     )
+    lock: InstanceOf[_Lock] = Field(default_factory=threading.Lock, exclude=True)
 
     @staticmethod
     def make_key(
@@ -41,11 +52,11 @@ class _ResponseCache(BaseModel):
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def get(self, key: str) -> dict[str, object] | None:
-        with self.lock:  # type: ignore[attr-defined]
+        with self.lock:
             return self.data.get(key)
 
     def set(self, key: str, value: dict[str, object]) -> None:
-        with self.lock:  # type: ignore[attr-defined]
+        with self.lock:
             self.data[key] = value
 
 

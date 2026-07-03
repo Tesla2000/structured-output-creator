@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Generic, Mapping, TypeVar
+from collections.abc import Mapping
+from typing import ClassVar, Generic, Protocol, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, create_model
 
-from structured_output_creator._cache import _ResponseCache, _default_cache
+from structured_output_creator._cache import _default_cache, _ResponseCache
 from structured_output_creator._models import _Message, _Role
 
 T = TypeVar("T", bound=BaseModel)
 PydanticType = TypeVar("PydanticType", bound=BaseModel)
 KwargsT = TypeVar("KwargsT", bound=Mapping[str, object])
+_ValueT = TypeVar("_ValueT")
+
+
+class _ValueHolder(Protocol[_ValueT]):
+    value: _ValueT
 
 
 class _BaseService(BaseModel, ABC, Generic[KwargsT]):
@@ -34,14 +40,11 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             else prompt_or_messages
         )
         if not issubclass(output_type, BaseModel):
-
-            class Model(BaseModel):
-                value: output_type  # type: ignore[valid-type]
-
-            result = self.create_structured_output(
-                messages, Model, use_cache=use_cache, kwargs=kwargs
+            wrapper_type = create_model("Model", value=(output_type, ...))
+            wrapped = self.create_structured_output(
+                messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
-            return result.value
+            return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
         )
@@ -75,14 +78,11 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             else prompt_or_messages
         )
         if not issubclass(output_type, BaseModel):
-
-            class Model(BaseModel):
-                value: output_type  # type: ignore[valid-type]
-
-            result = await self.create_structured_output_async(
-                messages, Model, use_cache=use_cache, kwargs=kwargs
+            wrapper_type = create_model("Model", value=(output_type, ...))
+            wrapped = await self.create_structured_output_async(
+                messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
-            return result.value
+            return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
         )
