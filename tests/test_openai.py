@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, omit
 from pydantic import BaseModel
 
 from structured_output_creator._models import (
@@ -58,9 +58,42 @@ def test_openai_generate_calls_parse_with_correct_args() -> None:
         model="gpt-5.4-mini",
         messages=[{"role": "user", "content": "hello"}],
         response_format=_Output,
+        temperature=omit,
+        max_tokens=omit,
+        top_p=omit,
+        n=omit,
+        frequency_penalty=omit,
+        presence_penalty=omit,
+        seed=omit,
     )
     assert isinstance(result, _Output)
     assert result.name == "Alice"
+
+
+def test_openai_generate_converts_all_message_roles() -> None:
+    mock_client = MagicMock(spec=OpenAI)
+    mock_client.beta.chat.completions.parse.return_value = _parsed_response(
+        _Output(name="Roles")
+    )
+    service = _OpenAIService.model_construct(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncOpenAI),
+        model="gpt-5.4-mini",
+    )
+    messages = [
+        _Message(role=_Role.system, content="sys"),
+        _Message(role=_Role.user, content="hi"),
+        _Message(role=_Role.assistant, content="hello"),
+    ]
+
+    service._generate(messages, _Output)  # noqa: SLF001
+
+    call_kwargs = mock_client.beta.chat.completions.parse.call_args.kwargs
+    assert call_kwargs["messages"] == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
 
 
 def test_openai_generate_custom_temperature() -> None:
@@ -97,9 +130,13 @@ def test_openai_generate_omits_unset_optional_params() -> None:
     )
     service._generate([_Message(role=_Role.user, content="t")], _Output)  # noqa: SLF001
     call_kwargs = mock_client.beta.chat.completions.parse.call_args.kwargs
-    assert "temperature" not in call_kwargs
-    assert "max_tokens" not in call_kwargs
-    assert "top_p" not in call_kwargs
+    assert call_kwargs["temperature"] is omit
+    assert call_kwargs["max_tokens"] is omit
+    assert call_kwargs["top_p"] is omit
+    assert call_kwargs["n"] is omit
+    assert call_kwargs["frequency_penalty"] is omit
+    assert call_kwargs["presence_penalty"] is omit
+    assert call_kwargs["seed"] is omit
 
 
 def test_openai_generate_returns_error_object_on_refusal() -> None:
@@ -185,6 +222,13 @@ def test_openai_generate_async_calls_parse() -> None:
         model="gpt-5.4-mini",
         messages=[{"role": "user", "content": "hello"}],
         response_format=_Output,
+        temperature=omit,
+        max_tokens=omit,
+        top_p=omit,
+        n=omit,
+        frequency_penalty=omit,
+        presence_penalty=omit,
+        seed=omit,
     )
     assert isinstance(result, _Output)
     assert result.name == "Async"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Literal, TypeVar
 
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, omit
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
@@ -72,13 +72,17 @@ class _OpenAIService(_BaseService):
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            top_p=self.top_p,
-            n=self.n,
-            frequency_penalty=self.frequency_penalty,
-            presence_penalty=self.presence_penalty,
-            seed=self.seed,
+            temperature=omit if self.temperature is None else self.temperature,
+            max_tokens=omit if self.max_tokens is None else self.max_tokens,
+            top_p=omit if self.top_p is None else self.top_p,
+            n=omit if self.n is None else self.n,
+            frequency_penalty=omit
+            if self.frequency_penalty is None
+            else self.frequency_penalty,
+            presence_penalty=omit
+            if self.presence_penalty is None
+            else self.presence_penalty,
+            seed=omit if self.seed is None else self.seed,
         )
         message = completion.choices[0].message
         if message.parsed is not None:
@@ -94,13 +98,17 @@ class _OpenAIService(_BaseService):
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            top_p=self.top_p,
-            n=self.n,
-            frequency_penalty=self.frequency_penalty,
-            presence_penalty=self.presence_penalty,
-            seed=self.seed,
+            temperature=omit if self.temperature is None else self.temperature,
+            max_tokens=omit if self.max_tokens is None else self.max_tokens,
+            top_p=omit if self.top_p is None else self.top_p,
+            n=omit if self.n is None else self.n,
+            frequency_penalty=omit
+            if self.frequency_penalty is None
+            else self.frequency_penalty,
+            presence_penalty=omit
+            if self.presence_penalty is None
+            else self.presence_penalty,
+            seed=omit if self.seed is None else self.seed,
         )
         message = completion.choices[0].message
         if message.parsed is not None:
