@@ -13,10 +13,6 @@ from structured_output_creator._claude import (
 from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._types import _ProviderType
 
-_CUSTOM_MAX_TOKENS = 1024
-_CUSTOM_MAX_TOKENS_ASYNC = 512
-_CUSTOM_TEMPERATURE = 0.5
-
 
 class _Output(BaseModel):
     name: str
@@ -121,14 +117,15 @@ def test_claude_generate_custom_max_tokens_via_kwargs() -> None:
         async_client=MagicMock(spec=AsyncAnthropic),
         model="claude-haiku-4-5",
     )
+    custom_max_tokens = 1024
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"max_tokens": _CUSTOM_MAX_TOKENS},
+        kwargs={"max_tokens": custom_max_tokens},
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["max_tokens"]
-        == _CUSTOM_MAX_TOKENS
+        == custom_max_tokens
     )
 
 
@@ -142,14 +139,15 @@ def test_claude_generate_custom_temperature_via_kwargs() -> None:
         async_client=MagicMock(spec=AsyncAnthropic),
         model="claude-haiku-4-5",
     )
+    custom_temperature = 0.5
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="t")],
         _Output,
-        kwargs={"temperature": _CUSTOM_TEMPERATURE},
+        kwargs={"temperature": custom_temperature},
     )
     assert (
         mock_client.beta.messages.parse.call_args.kwargs["temperature"]
-        == _CUSTOM_TEMPERATURE
+        == custom_temperature
     )
 
 
@@ -253,14 +251,15 @@ def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
         async_client=mock_async_client,
         model="claude-haiku-4-5",
     )
+    custom_max_tokens = 512
     asyncio.run(
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"max_tokens": _CUSTOM_MAX_TOKENS_ASYNC},
+            kwargs={"max_tokens": custom_max_tokens},
         )
     )
     assert (
         mock_async_client.beta.messages.parse.call_args.kwargs["max_tokens"]
-        == _CUSTOM_MAX_TOKENS_ASYNC
+        == custom_max_tokens
     )

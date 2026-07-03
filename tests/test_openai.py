@@ -10,9 +10,6 @@ from structured_output_creator._models import _ErrorObject, _Message, _Role
 from structured_output_creator._openai import _OpenAIService
 from structured_output_creator._types import _ProviderType
 
-_CUSTOM_TEMPERATURE = 0.5
-_CUSTOM_TEMPERATURE_ASYNC = 0.7
-
 
 class _Output(BaseModel):
     name: str
@@ -71,14 +68,15 @@ def test_openai_generate_custom_temperature_via_kwargs() -> None:
         async_client=MagicMock(spec=AsyncOpenAI),
         model="gpt-5.4-mini",
     )
+    custom_temperature = 0.5
     service._generate(  # noqa: SLF001
         [_Message(role=_Role.user, content="test")],
         _Output,
-        kwargs={"temperature": _CUSTOM_TEMPERATURE},
+        kwargs={"temperature": custom_temperature},
     )
     assert (
         mock_client.beta.chat.completions.parse.call_args.kwargs["temperature"]
-        == _CUSTOM_TEMPERATURE
+        == custom_temperature
     )
 
 
@@ -172,16 +170,17 @@ def test_openai_generate_async_custom_temperature_via_kwargs() -> None:
         async_client=mock_async_client,
         model="gpt-5.4-mini",
     )
+    custom_temperature = 0.7
     asyncio.run(
         service._generate_async(  # noqa: SLF001
             [_Message(role=_Role.user, content="t")],
             _Output,
-            kwargs={"temperature": _CUSTOM_TEMPERATURE_ASYNC},
+            kwargs={"temperature": custom_temperature},
         )
     )
     assert (
         mock_async_client.beta.chat.completions.parse.call_args.kwargs[
             "temperature"
         ]
-        == _CUSTOM_TEMPERATURE_ASYNC
+        == custom_temperature
     )
