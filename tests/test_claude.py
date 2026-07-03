@@ -177,6 +177,20 @@ def test_claude_generate_async_calls_parse() -> None:
     assert result.name == "Async"
 
 
+def test_claude_generate_returns_none_on_refusal() -> None:
+    mock_client = MagicMock(spec=Anthropic)
+    mock_client.beta.messages.parse.return_value = MagicMock(parsed_output=None)
+    service = _ClaudeService.model_construct(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncAnthropic),
+        model="claude-haiku-4-5",
+    )
+    result = service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="hello")], _Output
+    )
+    assert result is None
+
+
 def test_claude_generate_async_custom_max_tokens_via_kwargs() -> None:
     mock_async_client = MagicMock(spec=AsyncAnthropic)
     mock_async_client.beta.messages.parse = AsyncMock(

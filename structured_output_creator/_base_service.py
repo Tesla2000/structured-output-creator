@@ -33,7 +33,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         *,
         use_cache: bool = False,
         kwargs: KwargsT | None = None,
-    ) -> T:
+    ) -> T | None:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
             if isinstance(prompt_or_messages, str)
@@ -44,6 +44,8 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             wrapped = self.create_structured_output(
                 messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
+            if wrapped is None:
+                return None
             return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
@@ -60,7 +62,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             if cached is not None:
                 return output_type.model_validate(cached)
         result = self._generate(messages, output_type, kwargs)
-        if use_cache:
+        if use_cache and result is not None:
             _default_cache.set(key, result.model_dump())
         return result
 
@@ -71,7 +73,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         *,
         use_cache: bool = False,
         kwargs: KwargsT | None = None,
-    ) -> T:
+    ) -> T | None:
         messages = (
             [_Message(role=_Role.user, content=prompt_or_messages)]
             if isinstance(prompt_or_messages, str)
@@ -82,6 +84,8 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             wrapped = await self.create_structured_output_async(
                 messages, wrapper_type, use_cache=use_cache, kwargs=kwargs
             )
+            if wrapped is None:
+                return None
             return cast("_ValueHolder[T]", wrapped).value
         resolved_kwargs: Mapping[str, object] = (
             kwargs if kwargs is not None else {}
@@ -98,7 +102,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
             if cached is not None:
                 return output_type.model_validate(cached)
         result = await self._generate_async(messages, output_type, kwargs)
-        if use_cache:
+        if use_cache and result is not None:
             _default_cache.set(key, result.model_dump())
         return result
 
@@ -108,7 +112,7 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: KwargsT | None = None,
-    ) -> PydanticType: ...
+    ) -> PydanticType | None: ...
 
     @abstractmethod
     async def _generate_async(
@@ -116,4 +120,4 @@ class _BaseService(BaseModel, ABC, Generic[KwargsT]):
         messages: list[_Message],
         output_type: type[PydanticType],
         kwargs: KwargsT | None = None,
-    ) -> PydanticType: ...
+    ) -> PydanticType | None: ...

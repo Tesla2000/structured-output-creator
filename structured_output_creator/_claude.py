@@ -43,7 +43,7 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
         messages: list[_Message],
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
-    ) -> T:
+    ) -> T | None:
         call_kwargs: dict[str, object] = dict(kwargs or {})
         call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = self.client.beta.messages.parse(
@@ -54,14 +54,14 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
             output_format=output_type,
             **call_kwargs,  # type: ignore[arg-type]
         )
-        return response.parsed_output  # type: ignore[return-value]
+        return response.parsed_output
 
     async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
         kwargs: _ClaudeKwargs | None = None,
-    ) -> T:
+    ) -> T | None:
         call_kwargs: dict[str, object] = dict(kwargs or {})
         call_kwargs.setdefault("max_tokens", _DEFAULT_MAX_TOKENS)
         response = await self.async_client.beta.messages.parse(
@@ -72,4 +72,4 @@ class _ClaudeService(_BaseService[_ClaudeKwargs]):
             output_format=output_type,
             **call_kwargs,  # type: ignore[arg-type]
         )
-        return response.parsed_output  # type: ignore[return-value]
+        return response.parsed_output

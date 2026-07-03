@@ -95,6 +95,20 @@ def test_openai_generate_omits_unset_optional_params() -> None:
     assert "top_p" not in call_kwargs
 
 
+def test_openai_generate_returns_none_on_refusal() -> None:
+    mock_client = MagicMock(spec=OpenAI)
+    mock_client.beta.chat.completions.parse.return_value = _parsed_response(None)
+    service = _OpenAIService.model_construct(
+        client=mock_client,
+        async_client=MagicMock(spec=AsyncOpenAI),
+        model="gpt-5.4-mini",
+    )
+    result = service._generate(  # noqa: SLF001
+        [_Message(role=_Role.user, content="hello")], _Output
+    )
+    assert result is None
+
+
 def test_openai_generate_async_calls_parse() -> None:
     mock_async_client = MagicMock(spec=AsyncOpenAI)
     mock_async_client.beta.chat.completions.parse = AsyncMock(

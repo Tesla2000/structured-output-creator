@@ -56,25 +56,25 @@ class _OpenAIService(_BaseService[_OpenAIKwargs]):
         messages: list[_Message],
         output_type: type[T],
         kwargs: _OpenAIKwargs | None = None,
-    ) -> T:
+    ) -> T | None:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
             **(kwargs or {}),
         )
-        return completion.choices[0].message.parsed  # type: ignore[return-value]
+        return completion.choices[0].message.parsed
 
     async def _generate_async(
         self,
         messages: list[_Message],
         output_type: type[T],
         kwargs: _OpenAIKwargs | None = None,
-    ) -> T:
+    ) -> T | None:
         completion = await self.async_client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
             response_format=output_type,
             **(kwargs or {}),
         )
-        return completion.choices[0].message.parsed  # type: ignore[return-value]
+        return completion.choices[0].message.parsed
