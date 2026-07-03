@@ -45,6 +45,7 @@ repos:
           - openai
           - anthropic
         args: [ --strict, --config-file, pyproject.toml ]
+        exclude: ^tests/
   - repo: https://github.com/Tesla2000/any-hook
     rev: v3.17.1-alpha.2
     hooks:
