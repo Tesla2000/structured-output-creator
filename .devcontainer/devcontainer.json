@@ -4,8 +4,8 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "workspaceFolder": "/workspace",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "workspaceFolder": "/structured-output-creator",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/structured-output-creator,type=bind,consistency=cached",
   "remoteUser": "dev",
   "mounts": [
     {
