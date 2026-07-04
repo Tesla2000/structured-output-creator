@@ -7,4 +7,4 @@
 
 ## Description
 
-Produces structured output given model
+Generates structured output using LLM
