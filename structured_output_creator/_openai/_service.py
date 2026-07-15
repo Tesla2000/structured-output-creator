@@ -10,7 +10,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
     ParsedChatCompletionMessage,
 )
-from pydantic import BaseModel, ConfigDict, Field, InstanceOf
+from pydantic import ConfigDict, Field, InstanceOf
 
 from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import (
@@ -20,9 +20,10 @@ from structured_output_creator._models import (
     _RefusalError,
     _Role,
 )
+from structured_output_creator._openai._compatible import _OpenAICompatibleModel
 from structured_output_creator._types import _ProviderType
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T", bound=_OpenAICompatibleModel)
 _ContentT = TypeVar("_ContentT")
 
 

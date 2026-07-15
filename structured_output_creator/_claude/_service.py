@@ -4,9 +4,10 @@ from typing import ClassVar, Literal, TypeVar
 
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
-from pydantic import BaseModel, ConfigDict, Field, InstanceOf, model_validator
+from pydantic import ConfigDict, Field, InstanceOf, model_validator
 
 from structured_output_creator._base_service import _BaseService
+from structured_output_creator._claude._compatible import _ClaudeCompatibleModel
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -15,7 +16,7 @@ from structured_output_creator._models import (
 )
 from structured_output_creator._types import _ProviderType
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T", bound=_ClaudeCompatibleModel)
 
 # https://platform.claude.com/docs/en/about-claude/models/overview
 _MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {
