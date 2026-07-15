@@ -39,7 +39,7 @@ def test_openai_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
         sys.modules, "structured_output_creator", raising=False
     )
     monkeypatch.delitem(
-        sys.modules, "structured_output_creator._openai", raising=False
+        sys.modules, "structured_output_creator._openai._service", raising=False
     )
 
     with patch.dict(sys.modules, {"openai": None}):
@@ -56,7 +56,7 @@ def test_claude_import_error_handled(monkeypatch: pytest.MonkeyPatch) -> None:
         sys.modules, "structured_output_creator", raising=False
     )
     monkeypatch.delitem(
-        sys.modules, "structured_output_creator._claude", raising=False
+        sys.modules, "structured_output_creator._claude._service", raising=False
     )
 
     with patch.dict(sys.modules, {"anthropic": None}):
