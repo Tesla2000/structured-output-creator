@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, NoReturn, TypeVar
 
-from pydantic import BaseModel, ConfigDict, InstanceOf
+from pydantic import BaseModel, ConfigDict
 
 from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import (
@@ -27,7 +27,7 @@ class _RaisingService(BaseModel):
         frozen=True, extra="forbid"
     )
 
-    service: InstanceOf[_BaseService]
+    service: _BaseService
 
     def create_structured_output(
         self,
