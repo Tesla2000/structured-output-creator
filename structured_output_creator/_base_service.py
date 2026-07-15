@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import ClassVar, Protocol, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, InstanceOf, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from structured_output_creator._cache import (
     _make_default_cache,
@@ -26,8 +26,8 @@ class _BaseService(BaseModel, ABC):
     )
 
     model: str
-    cache: InstanceOf[_ResponseCache] = Field(
-        default_factory=_make_default_cache, exclude=True
+    cache: _ResponseCache = Field(
+        default_factory=_make_default_cache,
     )
 
     def create_structured_output(
