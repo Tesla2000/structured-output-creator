@@ -1,3 +1,4 @@
+import sys
 import types
 import typing
 from collections import abc as collections_abc
@@ -5,28 +6,30 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-_UNION_ORIGINS: frozenset[object] = frozenset(
-    {typing.Union, getattr(types, "UnionType", typing.Union)}
+_PEP604_UNION_ORIGINS: frozenset[object] = (
+    frozenset({types.UnionType})
+    if sys.version_info >= (3, 10)
+    else frozenset()
 )
 
-_TUPLE_ORIGINS: frozenset[object] = frozenset({tuple, typing.Tuple})
+_UNION_ORIGINS: frozenset[object] = (
+    frozenset({typing.Union}) | _PEP604_UNION_ORIGINS
+)
+
+_TUPLE_ORIGINS: frozenset[object] = frozenset({tuple})
 
 _JSON_INCOMPATIBLE_ORIGINS: frozenset[object] = frozenset(
     {
         dict,
-        typing.Dict,
         collections_abc.Mapping,
-        typing.Mapping,
         collections_abc.MutableMapping,
-        typing.MutableMapping,
         set,
-        typing.Set,
         frozenset,
-        typing.FrozenSet,
-        tuple,
-        typing.Tuple,
     }
 )
+
+_OPTIONAL_UNION_ARG_COUNT = 2
+_HOMOGENEOUS_TUPLE_ARG_COUNT = 2
 
 
 class _IncompatibleFieldTypeError(TypeError):
@@ -40,7 +43,9 @@ class _IncompatibleFieldTypeError(TypeError):
 
 
 class _RecursiveTypeCompatibilityChecker(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True, extra="forbid")
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        frozen=True, extra="forbid"
+    )
 
     forbidden_origins: frozenset[object]
     provider_name: str
@@ -48,7 +53,9 @@ class _RecursiveTypeCompatibilityChecker(BaseModel):
 
     def check_model(self, model: type[BaseModel]) -> None:
         for name, field in model.model_fields.items():
-            self._check_annotation(field.annotation, f"{model.__name__}.{name}")
+            self._check_annotation(
+                field.annotation, f"{model.__name__}.{name}"
+            )
 
     def _check_annotation(self, annotation: object, field_path: str) -> None:
         origin = typing.get_origin(annotation)
@@ -69,7 +76,10 @@ class _RecursiveTypeCompatibilityChecker(BaseModel):
             raise _IncompatibleFieldTypeError(
                 field_path, annotation, self.provider_name
             )
-        if origin in self.forbidden_origins or annotation in self.forbidden_origins:
+        if (
+            origin in self.forbidden_origins
+            or annotation in self.forbidden_origins
+        ):
             raise _IncompatibleFieldTypeError(
                 field_path, annotation, self.provider_name
             )
@@ -81,8 +91,10 @@ class _RecursiveTypeCompatibilityChecker(BaseModel):
 
     @staticmethod
     def _is_optional(args: tuple[object, ...]) -> bool:
-        return type(None) in args and len(args) == 2
+        return type(None) in args and len(args) == _OPTIONAL_UNION_ARG_COUNT
 
     @staticmethod
     def _is_homogeneous_tuple(args: tuple[object, ...]) -> bool:
-        return len(args) == 2 and args[1] is Ellipsis
+        return (
+            len(args) == _HOMOGENEOUS_TUPLE_ARG_COUNT and args[1] is Ellipsis
+        )

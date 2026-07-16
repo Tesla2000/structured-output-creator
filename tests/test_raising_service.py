@@ -113,3 +113,29 @@ def test_llm_refusal_error_is_subclass_of_llm_error() -> None:
 
 def test_llm_no_content_error_is_subclass_of_llm_error() -> None:
     assert issubclass(LLMNoContentError, LLMError)
+
+
+def test_generates_json_schema_for_scalar_output_type() -> None:
+    mock_client = MagicMock(spec=Anthropic)
+
+    def _parse_side_effect(**kwargs: object) -> MagicMock:
+        wrapper_type = kwargs["output_format"]
+        schema = wrapper_type.model_json_schema()
+        assert schema["type"] == "object"
+        assert set(schema["properties"]) == {"value"}
+        return MagicMock(
+            parsed_output=wrapper_type.model_validate({"value": "hello"})
+        )
+
+    mock_client.beta.messages.parse.side_effect = _parse_side_effect
+    mock_async_client = MagicMock(spec=AsyncAnthropic)
+    service = RaisingService(
+        service=ClaudeService.model_construct(
+            client=mock_client,
+            async_client=mock_async_client,
+            model="claude-haiku-4-5",
+            max_tokens=_MAX_TOKENS,
+        )
+    )
+    result = service.create_structured_output("hello", str)
+    assert result == "hello"

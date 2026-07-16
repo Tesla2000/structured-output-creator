@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from __future__ import annotations
 
 import pytest
 from pydantic import BaseModel
@@ -27,8 +27,8 @@ def test_allows_plain_model() -> None:
 
 def test_allows_optional_field() -> None:
     class WithOptional(BaseModel):
-        name: Optional[str]
-        other: Union[int, None]
+        name: str | None
+        other: int | None
 
     _make_checker().check_model(WithOptional)
 
@@ -66,7 +66,7 @@ def test_allows_homogeneous_variadic_tuple() -> None:
 
 def test_rejects_non_optional_union() -> None:
     class WithUnion(BaseModel):
-        value: Union[str, int]
+        value: str | int
 
     with pytest.raises(IncompatibleFieldTypeError):
         _make_checker().check_model(WithUnion)
@@ -74,7 +74,7 @@ def test_rejects_non_optional_union() -> None:
 
 def test_allow_unions_permits_non_optional_union() -> None:
     class WithUnion(BaseModel):
-        value: Union[str, int]
+        value: str | int
 
     checker = _RecursiveTypeCompatibilityChecker(
         forbidden_origins=_JSON_INCOMPATIBLE_ORIGINS,
@@ -86,7 +86,7 @@ def test_allow_unions_permits_non_optional_union() -> None:
 
 def test_allow_unions_still_rejects_forbidden_members() -> None:
     class WithBadUnion(BaseModel):
-        value: Union[str, dict[str, int]]
+        value: str | dict[str, int]
 
     checker = _RecursiveTypeCompatibilityChecker(
         forbidden_origins=_JSON_INCOMPATIBLE_ORIGINS,
@@ -113,7 +113,7 @@ def test_recurses_into_generic_containers() -> None:
         data: dict[str, int]
 
     class Outer(BaseModel):
-        items: List[BadNested]
+        items: list[BadNested]
 
     with pytest.raises(IncompatibleFieldTypeError):
         _make_checker().check_model(Outer)

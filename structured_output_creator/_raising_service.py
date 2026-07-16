@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import ClassVar, NoReturn, TypeVar
+from typing import ClassVar, Generic, NoReturn, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
-from structured_output_creator._base_service import _BaseService
+from structured_output_creator._base_service import SchemaT, _BaseService
 from structured_output_creator._models import (
     LLMNoContentError,
     LLMRefusalError,
@@ -22,12 +22,12 @@ def _raise_for_error(error: _ErrorObject) -> NoReturn:
     raise LLMNoContentError(error.message)
 
 
-class _RaisingService(BaseModel):
+class _RaisingService(BaseModel, Generic[SchemaT]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
 
-    service: _BaseService
+    service: _BaseService[SchemaT]
 
     def create_structured_output(
         self,

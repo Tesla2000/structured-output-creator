@@ -27,6 +27,11 @@ def _parsed_response(obj: _Output) -> MagicMock:
     return MagicMock(parsed_output=obj)
 
 
+def test_claude_service_model_json_schema_generates() -> None:
+    schema = ClaudeService.model_json_schema()
+    assert schema["type"] == "object"
+
+
 def test_claude_default_model() -> None:
     service = ClaudeService.model_construct(
         client=MagicMock(spec=Anthropic),

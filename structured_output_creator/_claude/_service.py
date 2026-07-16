@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal, TypeVar
+from typing import ClassVar, Literal
 
 from anthropic import Anthropic, AsyncAnthropic, omit
 from anthropic.types.beta import BetaMessage
 from pydantic import ConfigDict, Field, InstanceOf, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from structured_output_creator._base_service import _BaseService
-from structured_output_creator._claude._compatible import _ClaudeCompatibleModel
+from structured_output_creator._claude._compatible import (
+    _ClaudeCompatibleModel,
+)
 from structured_output_creator._models import (
     _ErrorObject,
     _Message,
@@ -15,8 +18,6 @@ from structured_output_creator._models import (
     _RefusalError,
 )
 from structured_output_creator._types import _ProviderType
-
-T = TypeVar("T", bound=_ClaudeCompatibleModel)
 
 # https://platform.claude.com/docs/en/about-claude/models/overview
 _MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {
@@ -50,7 +51,7 @@ def _error_from_response(response: BetaMessage) -> _ErrorObject:
     return _NoContentError(message=f"stop_reason={response.stop_reason}")
 
 
-class _ClaudeService(_BaseService):
+class _ClaudeService(_BaseService[_ClaudeCompatibleModel]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -63,10 +64,10 @@ class _ClaudeService(_BaseService):
     top_k: int | None = None
     system: str | None = None
     stop_sequences: list[str] | None = None
-    client: InstanceOf[Anthropic] = Field(
+    client: SkipJsonSchema[InstanceOf[Anthropic]] = Field(
         default_factory=Anthropic, exclude=True
     )
-    async_client: InstanceOf[AsyncAnthropic] = Field(
+    async_client: SkipJsonSchema[InstanceOf[AsyncAnthropic]] = Field(
         default_factory=AsyncAnthropic, exclude=True
     )
 
@@ -87,8 +88,8 @@ class _ClaudeService(_BaseService):
     def _generate(
         self,
         messages: list[_Message],
-        output_type: type[T],
-    ) -> T | _ErrorObject:
+        output_type: type[_ClaudeCompatibleModel],
+    ) -> _ClaudeCompatibleModel | _ErrorObject:
         response = self.client.beta.messages.parse(
             model=self.model,
             max_tokens=self.max_tokens,
@@ -111,8 +112,8 @@ class _ClaudeService(_BaseService):
     async def _generate_async(
         self,
         messages: list[_Message],
-        output_type: type[T],
-    ) -> T | _ErrorObject:
+        output_type: type[_ClaudeCompatibleModel],
+    ) -> _ClaudeCompatibleModel | _ErrorObject:
         response = await self.async_client.beta.messages.parse(
             model=self.model,
             max_tokens=self.max_tokens,
