@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, InstanceOf
+from pydantic.json_schema import SkipJsonSchema
 
 from structured_output_creator._models import _Message
 
@@ -30,7 +31,7 @@ class _ResponseCache(BaseModel):
     data: dict[str, dict[str, object]] = Field(
         default_factory=dict, exclude=True
     )
-    lock: InstanceOf[_Lock] = Field(
+    lock: SkipJsonSchema[InstanceOf[_Lock]] = Field(
         default_factory=threading.Lock, exclude=True
     )
 

@@ -11,6 +11,7 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 from pydantic import ConfigDict, Field, InstanceOf
+from pydantic.json_schema import SkipJsonSchema
 
 from structured_output_creator._base_service import _BaseService
 from structured_output_creator._models import (
@@ -20,10 +21,11 @@ from structured_output_creator._models import (
     _RefusalError,
     _Role,
 )
-from structured_output_creator._openai._compatible import _OpenAICompatibleModel
+from structured_output_creator._openai._compatible import (
+    _OpenAICompatibleModel,
+)
 from structured_output_creator._types import _ProviderType
 
-T = TypeVar("T", bound=_OpenAICompatibleModel)
 _ContentT = TypeVar("_ContentT")
 
 
@@ -45,7 +47,7 @@ def _as_oai_param(msg: _Message) -> ChatCompletionMessageParam:
     return ChatCompletionSystemMessageParam(role="system", content=msg.content)
 
 
-class _OpenAIService(_BaseService):
+class _OpenAIService(_BaseService[_OpenAICompatibleModel]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -59,16 +61,18 @@ class _OpenAIService(_BaseService):
     frequency_penalty: float | None = None
     presence_penalty: float | None = None
     seed: int | None = None
-    client: InstanceOf[OpenAI] = Field(default_factory=OpenAI, exclude=True)
-    async_client: InstanceOf[AsyncOpenAI] = Field(
+    client: SkipJsonSchema[InstanceOf[OpenAI]] = Field(
+        default_factory=OpenAI, exclude=True
+    )
+    async_client: SkipJsonSchema[InstanceOf[AsyncOpenAI]] = Field(
         default_factory=AsyncOpenAI, exclude=True
     )
 
     def _generate(
         self,
         messages: list[_Message],
-        output_type: type[T],
-    ) -> T | _ErrorObject:
+        output_type: type[_OpenAICompatibleModel],
+    ) -> _OpenAICompatibleModel | _ErrorObject:
         completion = self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],
@@ -93,8 +97,8 @@ class _OpenAIService(_BaseService):
     async def _generate_async(
         self,
         messages: list[_Message],
-        output_type: type[T],
-    ) -> T | _ErrorObject:
+        output_type: type[_OpenAICompatibleModel],
+    ) -> _OpenAICompatibleModel | _ErrorObject:
         completion = await self.async_client.beta.chat.completions.parse(
             model=self.model,
             messages=[_as_oai_param(m) for m in messages],

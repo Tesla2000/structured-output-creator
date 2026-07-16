@@ -47,7 +47,7 @@ repos:
         args: [ --strict, --config-file, pyproject.toml ]
         exclude: ^tests/
   - repo: https://github.com/Tesla2000/any-hook
-    rev: v3.17.1-alpha.2
+    rev: v3.21.0
     hooks:
       - id: any-hook
-        args: [--modifiers, '[{"type": "check-untracked", "directories": ["structured-output-creator", "tests"]},{"type": "remove-f-prefix"},{"type": "open-to-path"},{"type": "any-to-object"},{"type":"pydantic-config-to-model-config"},{"type":"local-imports"},{"type":"pydantic-v1-to-v2"},{"type":"str-enum-inheritance"},{"type":"forbidden-functions","forbidden_functions":["hasattr","getattr","print"]},{"type":"utcnow-to-datetime-now"},{"type":"len-as-bool"},{"type":"typing-to-builtin"},{"type":"comment-detector","patterns":["type: ignore"]}]']
+        args: [--modifiers, '[{"type": "check-untracked", "directories": ["structured-output-creator", "tests"]},{"type": "remove-f-prefix"},{"type": "open-to-path"},{"type":"pydantic-config-to-model-config"},{"type":"local-imports"},{"type":"pydantic-v1-to-v2"},{"type":"str-enum-inheritance"},{"type":"forbidden-functions","forbidden_functions":["hasattr","getattr","print"]},{"type":"utcnow-to-datetime-now"},{"type":"len-as-bool"},{"type":"typing-to-builtin"},{"type":"comment-detector","patterns":["type: ignore"]}]']

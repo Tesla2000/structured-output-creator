@@ -93,6 +93,11 @@ def test_cache_set_and_get() -> None:
     assert cache.get("key1") == {"name": "Alice"}
 
 
+def test_cache_model_json_schema_generates() -> None:
+    schema = _ResponseCache.model_json_schema()
+    assert schema["type"] == "object"
+
+
 def test_cache_thread_safety() -> None:
     cache = _ResponseCache()
     errors: list[Exception] = []

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Protocol, TypeVar, cast
+from typing import ClassVar, Generic, Protocol, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -12,7 +12,7 @@ from structured_output_creator._cache import (
 from structured_output_creator._models import _ErrorObject, _Message, _Role
 
 T = TypeVar("T")
-PydanticType = TypeVar("PydanticType", bound=BaseModel)
+SchemaT = TypeVar("SchemaT", bound=BaseModel)
 _ValueT = TypeVar("_ValueT")
 
 
@@ -20,7 +20,7 @@ class _ValueHolder(Protocol[_ValueT]):
     value: _ValueT
 
 
-class _BaseService(BaseModel, ABC):
+class _BaseService(BaseModel, ABC, Generic[SchemaT]):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, extra="forbid"
     )
@@ -55,10 +55,10 @@ class _BaseService(BaseModel, ABC):
             cached = self.cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = self._generate(messages, output_type)
+        result = self._generate(messages, cast("type[SchemaT]", output_type))
         if use_cache and not isinstance(result, _ErrorObject):
             self.cache.set(key, result.model_dump())
-        return result
+        return cast("T | _ErrorObject", result)
 
     async def create_structured_output_async(
         self,
@@ -85,21 +85,23 @@ class _BaseService(BaseModel, ABC):
             cached = self.cache.get(key)
             if cached is not None:
                 return output_type.model_validate(cached)
-        result = await self._generate_async(messages, output_type)
+        result = await self._generate_async(
+            messages, cast("type[SchemaT]", output_type)
+        )
         if use_cache and not isinstance(result, _ErrorObject):
             self.cache.set(key, result.model_dump())
-        return result
+        return cast("T | _ErrorObject", result)
 
     @abstractmethod
     def _generate(
         self,
         messages: list[_Message],
-        output_type: type[PydanticType],
-    ) -> PydanticType | _ErrorObject: ...
+        output_type: type[SchemaT],
+    ) -> SchemaT | _ErrorObject: ...
 
     @abstractmethod
     async def _generate_async(
         self,
         messages: list[_Message],
-        output_type: type[PydanticType],
-    ) -> PydanticType | _ErrorObject: ...
+        output_type: type[SchemaT],
+    ) -> SchemaT | _ErrorObject: ...

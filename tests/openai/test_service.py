@@ -24,6 +24,11 @@ def _parsed_response(obj: _Output) -> MagicMock:
     return MagicMock(choices=[MagicMock(message=MagicMock(parsed=obj))])
 
 
+def test_openai_service_model_json_schema_generates() -> None:
+    schema = OpenAIService.model_json_schema()
+    assert schema["type"] == "object"
+
+
 def test_openai_default_model() -> None:
     service = OpenAIService.model_construct(
         client=MagicMock(spec=OpenAI),
