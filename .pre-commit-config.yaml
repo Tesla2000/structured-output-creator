@@ -30,7 +30,7 @@ repos:
             "--exclude",
             ".venv,venv,tests",
             "--ignore-attributes-for-classes=.*",
-            "--ignore-decorators=@app.*,@pytest.fixture,@property,@model_validator,@field_serializer,@field_validator",
+            "--ignore-decorators=@app.*,@pytest.fixture,@property,@model_validator,@field_serializer,@field_validator,@overload,@typing.overload",
             "--ignore-names=Meta,__dict__,cli_cmd,_ValueHolder,AnyProviderService",
              "--extra-sys-path=.venv/lib/python3.12/site-packages,.",
           ]
